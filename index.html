@@ -1713,7 +1713,7 @@ async function loadRecords(){
     const tree=await ghApi('git/trees/HEAD?recursive=1');
     records=(tree?tree.tree:[]).filter(t=>/^records\/\d{4}\/\d{4}-\d{2}-\d{2}\.json$/.test(t.path)).map(t=>t.path).sort().reverse();
     box.innerHTML=records.length?records.map(p=>{ const d=p.match(/(\d{4}-\d{2}-\d{2})/)[1]; return `<div class="orow" style="grid-template-columns:1fr auto"><span>${d.replace(/-/g,'.')}${d===state.date?' <b style="color:var(--accent)">· 지금 주보</b>':''}</span><button type="button" class="btn small" data-rec="${esc(p)}">불러오기</button></div>`; }).join(''):'<p class="hint" style="margin:0">아직 쌓인 기록이 없어요.</p>';
-  }catch(e){ box.innerHTML=`<p class="warn" style="margin:0">${esc(e.message)}</p>`; }
+  }catch(e){ box.innerHTML=e.status===409?'<p class="hint" style="margin:0">아직 쌓인 기록이 없어요.</p>':`<p class="warn" style="margin:0">${esc(e.message)}</p>`; }
 }
 const REC_KEYS=['date','host','praise','order','bible','memRef','memText','nextPrayer','nextOffering','shareWorshipUrl','shareChoirUrl','shareOrigDate','shareOrigTitle','shareOrigUrl'];
 $('recList').addEventListener('click',async e=>{

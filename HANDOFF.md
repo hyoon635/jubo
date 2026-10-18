@@ -119,6 +119,8 @@
 - 예배 순서 접근: `getOrderCell(label,col)`, `setOrderCell(label,col,val)`. 라벨 비교는 공백을 무시함
 - 탭은 `showTab()`에 등록함: week / share / sync / fonts / props
 - 보호 장치: 시작할 때는 `booting` 플래그가 켜져 있어서 updatedAt을 바꾸지 않음
+- **성가대곡 칸**(`#choirSong`): 예배 순서 "찬양" 줄 내용과 같은 값. `setChoirSong()`은 찬양 줄이 없으면 "말씀 제목" 앞에 새로 만듦. 붙여넣기의 성가대곡도 이 함수를 씀
+- `designV13`: 안면의 예배 순서표 바로 아래 상자를 순서표와 같은 x·너비로 맞추고 상자 안 글상자도 같이 옮김
 - **모바일(폭 860px 이하) 미리보기**: `.stage`를 화면 밖(`translateY(100%)` + `visibility:hidden`)에 두고, 아래 `#previewFab` 버튼으로 전체 화면 창(`body.preview-open`)으로 엶. `display:none`을 쓰지 않는 이유는 숨겨 있어도 `fit()` 등 크기 계산이 맞게 하려는 것. 닫기는 `#previewClose`, 뒤로 가기(history.pushState), Esc
 - **[hidden] 규칙**: 독립 HTML 파일이라 `[hidden]{display:none!important}`를 직접 넣어 둠. 이게 없어서 저장 창 오버레이가 클릭을 막았던 적이 있음
 

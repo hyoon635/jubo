@@ -287,6 +287,12 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
         </fieldset>
 
         <fieldset>
+          <legend>성가대곡</legend>
+          <label>성가대 찬양 곡 제목 <input id="choirSong" placeholder="예: 천국 열쇠를 사용해요" autocomplete="off"></label>
+          <p class="hint">예배 순서의 <b>찬양</b> 줄, 찬양대 썸네일, 카톡·유튜브 글에 들어가요.</p>
+        </fieldset>
+
+        <fieldset>
           <legend>구글 시트 (대표기도 · 헌금기도)</legend>
           <div id="sheetNow" class="note">시트를 불러오는 중…</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn small" id="sheetReload">시트 다시 불러오기</button></div>
@@ -571,11 +577,11 @@ function defaultLayout(s={}){
     H(25,24,150,30,'예배 순서',21),
     T(361,16,180,56,'사회 : {사회}\n찬양인도 : {찬양인도}\n설교자 : {설교자}',{fmt:'kv',size:10.6,lh:1.8,labelW:40,align:'right',justVal:true}),
     ORDER(26,81,515,304),
-    BOX(19,413,515,360),
-    T(30,421,260,24,'지난 주 붙잡은 말씀',{font:'disp',size:16,color:'gray'}),
-    T(30,501,260,24,'이번 주 붙잡은 말씀',{font:'disp',size:16,color:'gray'}),
-    T(30,640,260,24,'한 줄 기도문',{font:'disp',size:16,color:'gray'}),
-    T(30,730,260,24,'전도 대상자',{font:'disp',size:16,color:'gray'}),
+    BOX(26,413,515,360),
+    T(37,421,260,24,'지난 주 붙잡은 말씀',{font:'disp',size:16,color:'gray'}),
+    T(37,501,260,24,'이번 주 붙잡은 말씀',{font:'disp',size:16,color:'gray'}),
+    T(37,640,260,24,'한 줄 기도문',{font:'disp',size:16,color:'gray'}),
+    T(37,730,260,24,'전도 대상자',{font:'disp',size:16,color:'gray'}),
     H(598,24,320,30,'나만의 체크리스트 만들기',21),
     T(597,58,490,38,'다니엘이 이 조서에 왕의 도장이 찍힌 것을 알고도 자기 집에 돌아가서는 윗방에 올라가 예루살렘으로 향한\n창문을 열고 ==전에 하던 대로 하루 세 번씩== 무릎을 꿇고 기도하며 그의 하나님께 감사하였더라 (단 6:10)',{size:11,lh:1.75}),
     CHECK(597,103,480,178),
@@ -1276,8 +1282,17 @@ function renderOrderEditor(){
     <input id="o${i}b" aria-label="내용 ${i+1}" value="${esc(r[1])}" data-i="${i}" data-j="1">
     <input id="o${i}c" aria-label="담당 ${i+1}" value="${esc(r[2])}" data-i="${i}" data-j="2">
     <button type="button" class="icon-btn" data-del="${i}" aria-label="${i+1}번째 순서 삭제" title="삭제">×</button></div>`).join('');
+  syncChoirSong();
 }
-$('order').addEventListener('input',e=>{ const t=e.target; if(t.dataset.i==null) return; state.order[t.dataset.i][t.dataset.j]=t.value; save(); renderPages(); });
+$('order').addEventListener('input',e=>{ const t=e.target; if(t.dataset.i==null) return; state.order[t.dataset.i][t.dataset.j]=t.value; save(); renderPages(); syncChoirSong(); });
+/* 성가대곡 칸 = 예배 순서 "찬양" 줄의 내용. 줄이 없으면 "말씀 제목" 앞에 새로 만듦 */
+function syncChoirSong(){ const el=$('choirSong'); if(el&&document.activeElement!==el) el.value=getOrderCell('찬양',1)||''; }
+function setChoirSong(v){
+  if(setOrderCell('찬양',1,v)) return true;
+  const at=state.order.findIndex(r=>norm(r[0])===norm('말씀 제목'));
+  state.order.splice(at<0?state.order.length:at,0,['찬양',v,'다윗 찬양대']); return true;
+}
+$('choirSong').addEventListener('input',()=>{ setChoirSong($('choirSong').value.trim()); save(); renderOrderEditor(); renderPages(); });
 $('order').addEventListener('click',e=>{ const d=e.target.closest('[data-del]'); if(!d) return; state.order.splice(+d.dataset.del,1); save(); renderOrderEditor(); renderPages(); });
 $('addRow').onclick=()=>{ state.order.push(['','','']); save(); renderOrderEditor(); renderPages(); $('o'+(state.order.length-1)+'a').focus(); };
 
@@ -1686,7 +1701,7 @@ const KEYMAP=[
   [['제목','말씀제목','설교제목'],(v)=>setOrderCell('말씀제목',1,v)&&'말씀 제목'],
   [['본문','말씀','오늘의말씀','성경본문','말씀본문'],(v)=>setOrderCell('오늘의말씀',1,v)&&'오늘의 말씀'],
   [['헌금찬송','헌금찬양','헌금송','헌금'],(v)=>setOrderCell('헌금',1,v)&&'헌금 찬송'],
-  [['찬양','성가대곡','성가대','성가대찬양','찬양대곡','찬양대','특송'],(v)=>setOrderCell('찬양',1,v)&&'찬양(성가대곡)'],
+  [['찬양','성가대곡','성가대','성가대찬양','찬양대곡','찬양대','특송'],(v)=>setChoirSong(v)&&'찬양(성가대곡)'],
   [['대표기도'],(v)=>setOrderCell('대표기도',2,withSuffix(v,'렘넌트'))&&'대표기도'],
   [['헌금기도'],(v)=>setOrderCell('헌금기도',2,withSuffix(v,'교사'))&&'헌금기도'],
   [['사회','사회자'],(v)=>{state.host=v;return '사회';}],
@@ -1726,7 +1741,7 @@ function applyPasteNow(){
     const {hit,val}=pm;
     const r=hit[1](val);
     if(r){ done.push(r); if(r==='암송 구절'&&!state.memText) memNew=true; }
-    else unknown.push(m[1].trim()+' (예배 순서에 이 줄이 없어요)');
+    else unknown.push(String(raw).split(/[:：]/)[0].replace(/^[^가-힣A-Za-z]+/,'').trim()+' (예배 순서에 이 줄이 없어요)');
   }
   save(); fillWeekPanel(); renderAll();
   let h=`<div class="note"><div class="ok">주보에 넣었어요: ${esc(done.join(', '))||'없음'}</div>`;
@@ -1894,6 +1909,14 @@ async function fitTextToNeighbors(){
       if(s!==w.p.size){ w.p.size=s; changed=true; } } });
   if(changed){ renderPages(); save(); }
   return changed;
+}
+if(!state.designV13){ /* 예배 순서표 아래 상자를 순서표 좌우 끝에 맞추고, 상자 안 글상자도 같이 옮김 */
+  for(const pg of state.layout.pages){ const o=pg.ws.find(w=>w.type==='order'); if(!o) continue;
+    const bx=pg.ws.filter(w=>w.type==='box'&&w.y>=o.y+o.h&&w.x<o.x+o.w&&o.x<w.x+w.w).sort((a,b)=>a.y-b.y)[0];
+    if(bx&&(bx.x!==o.x||bx.w!==o.w)){ const dx=o.x-bx.x;
+      for(const w of pg.ws) if(w!==bx&&w.type==='text'&&w.x>=bx.x&&w.x+w.w<=bx.x+bx.w+2&&w.y>=bx.y&&w.y<bx.y+bx.h) w.x+=dx;
+      bx.x=o.x; bx.w=o.w; } }
+  state.designV13=true; renderPages(); save();
 }
 if(!state.designV12){
   /* 잠깐 있던 잘못된 정리(designV11)로 9px 밑으로 줄어든 글상자는 키운 크기로 되돌린 뒤 다시 정리 */

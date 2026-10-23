@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
 <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style id="webFonts">
 @font-face{font-family:"Cafe24 Ohsquare";src:url(https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@5421a2f08a5a458848ea67ea7a2b0cdb0b978e68/Cafe24Ohsquare.woff) format("woff");font-display:block}
 @font-face{font-family:"Jalnan";src:url(https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_four@83c75bb4fddbe9723ee55bdf327e4bd3423d670e/JalnanOTF00.woff) format("woff");font-display:block}
@@ -253,6 +254,15 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
 .tc .ch{top:772px;font-weight:800;font-size:80px;color:#183d78}
 .tc .cc{top:880px;font-weight:600;font-size:46px;color:#5a6478}
 .tc .clip{position:absolute;left:1650px;top:24px;width:120px;height:124px}
+/* 예배 영상 썸네일 1920x1080: 크림 바탕 시안에서 가운데 글씨만 빼고 다시 그림. 글씨는 타이틀 글꼴 */
+.tw{width:1920px;height:1080px;background:#fcfaf2;font-family:var(--f-title),Pretendard,sans-serif;font-weight:var(--w-title,700);letter-spacing:-.02em}
+.tw .deco{position:absolute;inset:0}
+.tw .rib{position:absolute;left:85px;top:62px;width:214px;text-align:center;color:#fff;font-size:36px;line-height:1.2;letter-spacing:0}
+.tw .c1{top:290px;font-size:36px;color:#e486a8;letter-spacing:-.01em}
+.tw .c2{top:342px;font-size:50px;color:#183d78;letter-spacing:-.01em}
+.tw .tt{top:452px;font-size:156px;letter-spacing:-.045em;padding:0 420px}
+.tw .ps{top:650px;font-size:50px;color:#5a6478}
+.tw .pr{position:absolute;left:50%;top:776px;height:72px;transform:translateX(-50%);background:linear-gradient(90deg,#f48fb1 0%,#d29be0 50%,#5fa9f2 100%);color:#fff;font-size:42px;line-height:72px;padding:0 70px;border-radius:36px;white-space:nowrap}
 @media print{.thumbs{display:none!important}}
 
 #saveBox{position:fixed;inset:0;z-index:100;background:rgba(30,15,25,.45);display:grid;place-items:center;padding:16px}
@@ -842,8 +852,36 @@ function thumbData(){
 function thumbsHTML(){
   const d=thumbData(), logo=state.thumbLogo||DEFAULT_LOGO;
   const clip=`<svg class="clip" viewBox="0 0 120 124" aria-hidden="true"><path d="M44 62 L52 18 a12 12 0 1 1 18 0 L78 62" fill="none" stroke="#183d78" stroke-width="7" stroke-linejoin="round"/><path d="M44 62 L52 18 a12 12 0 1 1 18 0 L78 62" fill="none" stroke="#fff" stroke-width="3"/><rect x="8" y="60" width="104" height="58" rx="6" fill="#f7a8bd" stroke="#183d78" stroke-width="2"/><rect x="2" y="114" width="116" height="8" rx="4" fill="#f7a8bd" stroke="#183d78" stroke-width="2"/></svg>`;
-  return `<section class="thumbs"><div class="plabel">썸네일 <span>설교 1280×720 · 찬양대 1920×1080</span></div>
+  const spark=(x,y,r,f)=>`<path d="M${x} ${y-r}Q${x+r*.14} ${y-r*.14} ${x+r} ${y}Q${x+r*.14} ${y+r*.14} ${x} ${y+r}Q${x-r*.14} ${y+r*.14} ${x-r} ${y}Q${x-r*.14} ${y-r*.14} ${x} ${y-r}Z" fill="${f}"/>`;
+  const ray=(x1,y1,x2,y2,c)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="4.5" stroke-linecap="round"/>`;
+  const worship=`<svg class="deco" viewBox="0 0 1920 1080" aria-hidden="true"><defs>
+      <linearGradient id="twTR" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#fbd5e0"/><stop offset="1" stop-color="#e2e3fb"/></linearGradient>
+      <linearGradient id="twBL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cbdaf9"/><stop offset="1" stop-color="#e3eafb"/></linearGradient>
+      <linearGradient id="twBR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f9d7e4"/><stop offset="1" stop-color="#d9e2fb"/></linearGradient>
+      <linearGradient id="twRib" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#abaeea"/><stop offset="1" stop-color="#a4bbf3"/></linearGradient>
+      <linearGradient id="twCross" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f59fbd"/><stop offset="1" stop-color="#c3a6ea"/></linearGradient>      <linearGradient id="twPink" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7a9c1"/><stop offset="1" stop-color="#f28aae"/></linearGradient>
+      <linearGradient id="twLine" gradientUnits="userSpaceOnUse" x1="755" y1="0" x2="1165" y2="0"><stop offset="0" stop-color="#a9b6f2"/><stop offset=".45" stop-color="#f3a3bf"/><stop offset=".55" stop-color="#f3a3bf"/><stop offset="1" stop-color="#8fb8f5"/></linearGradient>
+    </defs>
+    <circle cx="1757" cy="30" r="390" fill="url(#twTR)"/>
+    <ellipse cx="-40" cy="905" rx="300" ry="250" fill="url(#twBL)"/>
+    <circle cx="1960" cy="1215" r="390" fill="url(#twBR)"/>
+    <path d="M85 0H299V287L192 248L85 287Z" fill="url(#twRib)"/>
+    <path d="M93 0V275L192 239L291 275V0" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="5 5"/>
+    <line x1="127" y1="164" x2="258" y2="164" stroke="#fff" stroke-width="3"/>${spark(193,205,19,'#fff')}
+    <rect x="953" y="152" width="14" height="104" rx="3" fill="url(#twCross)"/><rect x="931" y="183" width="58" height="13" rx="3" fill="url(#twCross)"/>
+    ${ray(960,130,960,146,'#c7b1ee')}${ray(902,152,914,165,'#f3a3bf')}${ray(1018,152,1006,165,'#8fb8f5')}${ray(872,194,890,198,'#f3a3bf')}${ray(1030,198,1048,194,'#8fb8f5')}${ray(1020,238,1034,244,'#f6c4d4')}    ${spark(356,640,48,'url(#twPink)')}${spark(1576,396,52,'#b6a9f0')}
+    <line x1="755" y1="901" x2="918" y2="901" stroke="url(#twLine)" stroke-width="2.5"/><line x1="1002" y1="901" x2="1165" y2="901" stroke="url(#twLine)" stroke-width="2.5"/>${spark(960,901,26,'url(#twLine)')}
+  </svg>`;
+  return `<section class="thumbs"><div class="plabel">썸네일 <span>예배 영상 1920×1080 · 설교 1280×720 · 찬양대 1920×1080</span></div>
   <div style="display:flex;gap:16px;flex-wrap:wrap">
+    <div class="tscaler" style="position:relative"><div class="tpage tw" id="thumbWorship" data-w="1920" data-h="1080">
+      ${worship}<div class="rib">MIDDLE<br>SCHOOL</div>
+      <div class="fitline c1">${esc(state.thumbChurch)}</div>
+      <div class="fitline c2">${esc(koDate(d.date))} 중등부 예배</div>
+      <div class="fitline tt gtx" data-fit>${esc(d.title)}</div>
+      <div class="fitline ps">${d.passage?`(${esc(d.passage)})`:''}</div>
+      ${d.preacher?`<div class="pr">${esc(d.preacher)}</div>`:''}
+    </div></div>
     <div class="tscaler" style="position:relative"><div class="tpage ts" id="thumbSermon" data-w="1280" data-h="720">
       <div class="rib"><div>MIDDLE<br>SCHOOL</div></div>
       ${logo?`<img class="tlogo" src="${logo}" alt="">`:''}
@@ -1467,14 +1505,15 @@ $('pngBtn').onclick=()=>busy(async()=>{
   box.innerHTML=`<div class="savecard" role="dialog" aria-label="이미지 저장">
     <div style="display:flex;justify-content:space-between;align-items:center"><b>이미지 저장</b><button type="button" class="icon-btn" id="saveClose" aria-label="닫기">×</button></div>
     <div class="savegrid">${imgs.map((u,i)=>`<div><img src="${u}" alt="${esc(state.layout.pages[i].name)} 미리보기"><button type="button" class="btn small" data-save="${i}">${esc(state.layout.pages[i].name)} 저장</button></div>`).join('')}</div>
-    <button type="button" class="btn primary small" id="saveBoth">두 면 한 장으로 합쳐 저장</button></div>`;
+    <button type="button" class="btn primary small" id="saveBoth">두 면 ZIP으로 한 번에 저장</button></div>`;
   box.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{ download(imgs[+b.dataset.save],`${fileBase()}-${+b.dataset.save+1}.png`); b.textContent='저장했어요 ✓'; });
   $('saveClose').onclick=()=>{ box.hidden=true; box.innerHTML=''; };
   $('saveBoth').onclick=async()=>{
-    const els=await Promise.all(imgs.map(u=>new Promise(r=>{ const im=new Image(); im.onload=()=>r(im); im.src=u; })));
-    const c=document.createElement('canvas'); c.width=els[0].width; c.height=els.reduce((s,e)=>s+e.height,0);
-    const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); let y=0; for(const e of els){ g.drawImage(e,0,y); y+=e.height; }
-    download(c.toDataURL('image/png'),`${fileBase()}.png`); $('saveBoth').textContent='저장했어요 ✓';
+    const zip=new JSZip();
+    imgs.forEach((u,i)=>zip.file(`${fileBase()}-${i+1}.png`,u.split(',')[1],{base64:true}));
+    const url=URL.createObjectURL(await zip.generateAsync({type:'blob'}));
+    download(url,`${fileBase()}.zip`); setTimeout(()=>URL.revokeObjectURL(url),2000);
+    $('saveBoth').textContent='저장했어요 ✓';
   };
 });
 function showSaveDialog(title,items){
@@ -1487,11 +1526,12 @@ function showSaveDialog(title,items){
 }
 $('thumbBtn').onclick=()=>busy(async()=>{
   const ymd6=String(state.date).replace(/-/g,'').slice(2);
+  status('예배 영상 썸네일 만드는 중…'); const w=await toPng($('thumbWorship'),1920,1080,1);
   status('설교 썸네일 만드는 중…'); const a=await toPng($('thumbSermon'),1280,720,1);
   status('찬양대 썸네일 만드는 중…'); const b=await toPng($('thumbChoir'),1920,1080,1);
   status('');
   syncSave(true);
-  showSaveDialog('썸네일 저장',[{label:'설교 썸네일',url:a,name:`중등부_설교썸네일_${ymd6}.png`},{label:'찬양대 썸네일',url:b,name:`중등부_찬양썸네일_${ymd6}.png`}]);
+  showSaveDialog('썸네일 저장',[{label:'예배 영상 썸네일',url:w,name:`중등부_예배썸네일_${ymd6}.png`},{label:'설교 썸네일',url:a,name:`중등부_설교썸네일_${ymd6}.png`},{label:'찬양대 썸네일',url:b,name:`중등부_찬양썸네일_${ymd6}.png`}]);
 });
 $('pdfBtn').onclick=()=>busy(async()=>{
   const pdf=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
@@ -1724,17 +1764,41 @@ function parseLine(raw){
   for(const [re,fn] of KEY_RES){ const m=line.match(re); if(m&&m[1].replace(/^[:：=\-–—\s]+/,'')) return {hit:[null,fn],val:m[1].replace(/^[:：=\-–—\s]+/,'').trim()}; }
   return null;
 }
+/* "2026.10.18", "26.10.18", "2026년 10월 18일", "10월 18일", "[10.18 …]" 모두 알아봄. 연도가 없으면 오늘과 가까운 해로 */
+function findPasteDate(txt){
+  const p=n=>String(n).padStart(2,'0'), ok=(m,d)=>m>=1&&m<=12&&d>=1&&d<=31;
+  let m=txt.match(/(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})/);
+  if(m&&ok(+m[2],+m[3])) return `${m[1]}-${p(m[2])}-${p(m[3])}`;
+  m=txt.match(/(?:^|[^\d:])(\d{2})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})(?!\d)/);
+  if(m&&ok(+m[2],+m[3])) return `20${m[1]}-${p(m[2])}-${p(m[3])}`;
+  m=txt.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/)||(txt.split('\n').find(l=>l.trim())||'').match(/(?:^|[^\d:가-힣])(\d{1,2})\s*[./]\s*(\d{1,2})(?![\d:])/);
+  if(m&&ok(+m[1],+m[2])){
+    const t=new Date(), today=`${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}`;
+    const cands=[-1,0,1].map(o=>`${t.getFullYear()+o}-${p(m[1])}-${p(m[2])}`);
+    return cands.sort((a,b)=>Math.abs(dayNum(a)-dayNum(today))-Math.abs(dayNum(b)-dayNum(today)))[0];
+  }
+  return null;
+}
+function applyPasteDate(txt){
+  const ds=findPasteDate(txt); if(!ds) return null;
+  const sun=nearestSunday(ds);
+  changeDate(sun); $('date').value=state.date;
+  return {sun,note:sun!==ds?`${ymd(ds)}은 주일이 아니라서 가까운 주일 ${ymd(sun)}로 맞췄어요.`:''};
+}
+/* 붙여 넣거나 입력하면 날짜부터 바로 맞춤 */
+let pasteDateTimer=null;
+$('paste').addEventListener('input',()=>{ clearTimeout(pasteDateTimer); pasteDateTimer=setTimeout(()=>{
+  const od=state.date, dr=applyPasteDate($('paste').value); if(!dr||state.date===od) return;
+  save(); fillWeekPanel(); renderAll();
+  $('pasteResult').innerHTML=`<div class="note"><div class="ok">날짜를 ${esc(ymd(dr.sun))}로 맞췄어요. "주보에 넣기"를 누르면 나머지 내용도 들어가요.</div>${dr.note?`<div class="warn">${esc(dr.note)}</div>`:''}</div>`;
+  $('pasteResult').hidden=false;
+},400); });
 $('applyPaste').onclick=()=>{ try{ applyPasteNow(); }catch(e){ console.error(e); $('pasteResult').hidden=false; $('pasteResult').innerHTML=`<div class="note"><span class="warn">넣는 중에 문제가 생겼어요: ${esc(e.message)}</span><br>이 문구를 캡처해서 알려 주세요.</div>`; } };
 function applyPasteNow(){
   const txt=$('paste').value; if(!txt.trim()) return;
   const done=[], unknown=[], notes=[];
-  const dm=txt.match(/(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})/);
-  if(dm){
-    const p=n=>String(n).padStart(2,'0'); let ds=`${dm[1]}-${p(dm[2])}-${p(dm[3])}`;
-    const sun=nearestSunday(ds);
-    if(sun!==ds) notes.push(`${ymd(ds)}은 주일이 아니라서 가까운 주일 ${ymd(sun)}로 맞췄어요.`);
-    changeDate(sun); done.push(`날짜 ${ymd(sun)}`);
-  }
+  const dr=applyPasteDate(txt);
+  if(dr){ if(dr.note) notes.push(dr.note); done.push(`날짜 ${ymd(dr.sun)}`); }
   let memNew=false;
   for(const raw of txt.split('\n')){
     const pm=parseLine(raw); if(!pm) { const m=raw.match(/^\s*[^가-힣]*([가-힣 ]{1,10})\s*[:：]/); if(m) unknown.push(m[1].trim()); continue; }

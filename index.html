@@ -308,18 +308,6 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
         </fieldset>
 
         <fieldset>
-          <legend>예배 순서</legend>
-          <div class="row3">
-            <label>사회 <input id="host"></label>
-            <label>찬양인도 <input id="praise"></label>
-            <label>설교자 <input id="preacher"></label>
-          </div>
-          <div class="order" id="order"></div>
-          <div><button type="button" class="btn small" id="addRow">+ 순서 추가</button></div>
-          <p class="hint">순서 · 내용(가운데) · 담당(오른쪽)</p>
-        </fieldset>
-
-        <fieldset>
           <legend>이번 주 성경읽기 · 암송</legend>
           <label style="display:flex;gap:6px;align-items:center;color:var(--fg)"><input type="checkbox" id="bibleAuto"> 성경 읽기 매주 7장씩 자동으로 넘기기</label>
           <div id="bibleAutoBox" class="row2">
@@ -334,6 +322,18 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
           <label>암송 말씀 본문 <textarea id="memText" rows="3"></textarea></label>
           <p class="hint" id="memHint"></p>
           <div id="memLink"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>예배 순서</legend>
+          <div class="row3">
+            <label>사회 <input id="host"></label>
+            <label>찬양인도 <input id="praise"></label>
+            <label>설교자 <input id="preacher"></label>
+          </div>
+          <div class="order" id="order"></div>
+          <div><button type="button" class="btn small" id="addRow">+ 순서 추가</button></div>
+          <p class="hint">순서 · 내용(가운데) · 담당(오른쪽)</p>
         </fieldset>
 
         <fieldset>

@@ -1489,13 +1489,21 @@ $('pngBtn').onclick=()=>busy(async()=>{
     $('saveBoth').textContent='저장했어요 ✓';
   };
 });
-function showSaveDialog(title,items){
+function showSaveDialog(title,items,zipName){
   const box=$('saveBox'); box.hidden=false;
   box.innerHTML=`<div class="savecard" role="dialog" aria-label="${esc(title)}">
     <div style="display:flex;justify-content:space-between;align-items:center"><b>${esc(title)}</b><button type="button" class="icon-btn" id="saveClose" aria-label="닫기">×</button></div>
-    <div class="savegrid">${items.map((it,i)=>`<div><img src="${it.url}" alt="${esc(it.label)} 미리보기"><button type="button" class="btn small" data-save="${i}">${esc(it.label)} 저장</button></div>`).join('')}</div></div>`;
+    <div class="savegrid">${items.map((it,i)=>`<div><img src="${it.url}" alt="${esc(it.label)} 미리보기"><button type="button" class="btn small" data-save="${i}">${esc(it.label)} 저장</button></div>`).join('')}</div>
+    ${zipName?`<button type="button" class="btn primary small" id="saveZip">ZIP으로 한 번에 저장</button>`:''}</div>`;
   box.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{ const it=items[+b.dataset.save]; download(it.url,it.name); b.textContent='저장했어요 ✓'; });
   $('saveClose').onclick=()=>{ box.hidden=true; box.innerHTML=''; };
+  if(zipName) $('saveZip').onclick=async()=>{
+    const zip=new JSZip();
+    items.forEach(it=>zip.file(it.name,it.url.split(',')[1],{base64:true}));
+    const url=URL.createObjectURL(await zip.generateAsync({type:'blob'}));
+    download(url,zipName); setTimeout(()=>URL.revokeObjectURL(url),2000);
+    $('saveZip').textContent='저장했어요 ✓';
+  };
 }
 $('thumbBtn').onclick=()=>busy(async()=>{
   const ymd6=String(state.date).replace(/-/g,'').slice(2);
@@ -1503,7 +1511,7 @@ $('thumbBtn').onclick=()=>busy(async()=>{
   status('찬양대 썸네일 만드는 중…'); const b=await toPng($('thumbChoir'),1920,1080,1);
   status('');
   syncSave(true);
-  showSaveDialog('썸네일 저장',[{label:'예배 영상 썸네일',url:w,name:`중등부_예배썸네일_${ymd6}.png`},{label:'찬양대 썸네일',url:b,name:`중등부_찬양썸네일_${ymd6}.png`}]);
+  showSaveDialog('썸네일 저장',[{label:'예배 영상 썸네일',url:w,name:`중등부_예배썸네일_${ymd6}.png`},{label:'찬양대 썸네일',url:b,name:`중등부_찬양썸네일_${ymd6}.png`}],`중등부_썸네일_${ymd6}.zip`);
 });
 $('pdfBtn').onclick=()=>busy(async()=>{
   const pdf=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});

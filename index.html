@@ -220,7 +220,9 @@ kbd{font-family:var(--ui);font-size:11px;border:1px solid var(--line);border-bot
 body:not(.design) .design-only{display:none!important}
 body:not(.design) .page .w{cursor:default}
 body:not(.design) .page:not(.exporting) .w:hover{outline:none}
-.paste{min-height:130px;font-size:13px}
+.paste{min-height:205px;font-size:13px}
+.paste:placeholder-shown{border-style:dashed;background:transparent}
+.paste::placeholder{color:var(--muted);opacity:.6;font-style:italic}
 .ok{color:#15803d;font-weight:600}
 .sumlist{margin:0;padding-left:16px;line-height:1.7;font-size:12.5px}
 [hidden]{display:none!important}
@@ -281,7 +283,7 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
       <div id="panelWeek">
         <fieldset>
           <legend>전달받은 내용 붙여넣기</legend>
-          <textarea id="paste" class="paste" placeholder="[2026.10.18 중등부 예배]&#10;찬송 : 찬171장 하나님의 독생자 예수&#10;제목 : 부활하신 그리스도의 메세지&#10;본문 : 행1:8&#10;헌금찬송 : 말씀대로 되리라&#10;성가대곡 : 천국 열쇠를 사용해요&#10;암송구절 : 마28:18~20"></textarea>
+          <textarea id="paste" class="paste" placeholder="✎ 전달받은 내용을 붙여 넣으세요 (아래는 예시)&#10;&#10;[2026.10.18 중등부 예배]&#10;찬송 : 찬171장 하나님의 독생자 예수&#10;제목 : 부활하신 그리스도의 메세지&#10;본문 : 행1:8&#10;헌금찬송 : 말씀대로 되리라&#10;성가대곡 : 천국 열쇠를 사용해요&#10;암송구절 : 마28:18~20"></textarea>
           <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn primary small" id="applyPaste">주보에 넣기</button><button type="button" class="btn small" id="clearPaste">지우기</button></div>
           <div id="pasteResult" hidden></div>
         </fieldset>

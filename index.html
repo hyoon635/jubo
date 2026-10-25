@@ -407,7 +407,7 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
           <div>
             <label>시트 저장 주소 (웹 앱 URL) <input id="gsUrl" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
             <label>비밀번호 <input id="gsPass" type="password" autocomplete="off"></label>
-            <p class="hint" style="margin:0">주소와 비밀번호는 이 기기의 브라우저에만 저장돼요. 구글 시트를 연결하면 GitHub 대신 시트에 저장해요. 처음 한 번 시트에 Apps Script를 배포해야 해요(<a href="apps-script/README.md" target="_blank" rel="noopener">설치 안내</a> · <a href="apps-script/Code.gs" target="_blank" rel="noopener">코드</a>).</p>
+            <p class="hint" style="margin:0">주소는 미리 들어가 있어서 비밀번호만 넣으면 돼요. 비밀번호는 이 기기의 브라우저에만 저장돼요. 구글 시트를 연결하면 GitHub 대신 시트에 저장해요. 처음 한 번 시트에 Apps Script를 배포해야 해요(<a href="apps-script/README.md" target="_blank" rel="noopener">설치 안내</a> · <a href="apps-script/Code.gs" target="_blank" rel="noopener">코드</a>).</p>
             <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn small" id="gsTest">연결 확인</button><button type="button" class="btn small danger" id="gsForget">이 기기에서 연결 지우기</button></div>
             <div id="gsNote" class="note" hidden></div>
           </div>
@@ -1907,8 +1907,11 @@ function weekRecord(){
 
 /* ───────── 구글 시트 저장 (Apps Script 웹 앱 + 공용 비밀번호, apps-script/Code.gs) ───────── */
 const GS_KEY=KEY+'-gsheet';
-let gs={url:'',pass:''};
+/* 중등부 주보 저장소 시트의 웹 앱 주소. 기기마다 비밀번호만 넣으면 됨 */
+const GS_DEFAULT_URL='https://script.google.com/macros/s/AKfycbzyZnPEboghjDS6mD2v0qgRtqCBycfT-8MhWl0m0uGPjo5qNm8xTIjwU9bs-on2Es16/exec';
+let gs={url:GS_DEFAULT_URL,pass:''};
 try{ Object.assign(gs,JSON.parse(localStorage.getItem(GS_KEY)||'{}')); }catch(e){}
+if(!gs.url) gs.url=GS_DEFAULT_URL;
 const gsSaveCfg=()=>{ try{ localStorage.setItem(GS_KEY,JSON.stringify(gs)); }catch(e){} };
 async function gsCall(action,data={}){
   /* text/plain으로 보내야 브라우저가 사전 요청(CORS preflight)을 안 해서 Apps Script가 받을 수 있음 */
@@ -2026,7 +2029,7 @@ function renderSyncPanel(){
   loadRecords();
 }
 const gsChanged=()=>{ gsSaveCfg(); if(STORES.sheet.on()){ syncCheck(); loadRecords(); } };
-$('gsUrl').onchange=()=>{ gs.url=$('gsUrl').value.trim(); gsChanged(); };
+$('gsUrl').onchange=()=>{ gs.url=$('gsUrl').value.trim()||GS_DEFAULT_URL; $('gsUrl').value=gs.url; gsChanged(); };
 $('gsPass').onchange=()=>{ gs.pass=$('gsPass').value; gsChanged(); };
 /* 연결 확인 결과는 버튼 바로 아래에 보여 줌 (위쪽 상태 칸은 화면 밖일 때가 많음) */
 async function testConn(noteId,st,need){
@@ -2035,8 +2038,8 @@ async function testConn(noteId,st,need){
   say('연결을 확인하는 중…');
   try{ say(await st.test()); syncCheck(); loadRecords(); }catch(e){ say(`<span class="warn">${esc(e.message)}</span>`); }
 }
-$('gsTest').onclick=()=>{ gs.url=$('gsUrl').value.trim(); gs.pass=$('gsPass').value; gsSaveCfg(); testConn('gsNote',STORES.sheet,'시트 저장 주소와 비밀번호를 둘 다 넣어 주세요.'); };
-$('gsForget').onclick=()=>{ gs={url:'',pass:''}; gsSaveCfg(); $('gsNote').hidden=true; renderSyncPanel(); };
+$('gsTest').onclick=()=>{ gs.url=$('gsUrl').value.trim()||GS_DEFAULT_URL; gs.pass=$('gsPass').value; gsSaveCfg(); testConn('gsNote',STORES.sheet,'시트 저장 주소와 비밀번호를 둘 다 넣어 주세요.'); };
+$('gsForget').onclick=()=>{ gs={url:GS_DEFAULT_URL,pass:''}; gsSaveCfg(); $('gsNote').hidden=true; renderSyncPanel(); };
 
 /* ───────── 파일로 내보내기 · 가져오기 (연결 없이 기기 옮기기·백업) ───────── */
 $('fileExport').onclick=()=>$('layoutSave').onclick();

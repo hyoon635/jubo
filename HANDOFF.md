@@ -75,7 +75,7 @@
     - `_작업내용` 시트(숨김): state JSON을 4만 자씩 잘라 A열에 넣음. 각 조각 앞에 `~`를 붙여 수식·숫자로 바뀌지 않게 함
     - `주보 기록` 시트: 날짜별 한 줄(보기용 열 + 마지막 열에 원본 JSON), 서식은 일반 텍스트(@), 날짜 내림차순 정렬
     - 주소·비밀번호는 localStorage `jungdeungbu-bulletin-v1-gsheet`에만 저장
-    - 실제 구글 배포로는 아직 시험하지 않음. 브라우저에서 SpreadsheetApp 등을 흉내 낸 가짜 환경으로 Code.gs를 돌려 저장·불러오기·엇갈림 방지·조각 나눔을 확인함
+    - 2026-10-25 사용자가 실제 배포·연결·저장까지 확인함(시트에 데이터 들어옴). 엇갈림 방지·조각 나눔은 가짜 SpreadsheetApp 환경에서만 확인함
   - **파일로 보관**: 기록 탭의 "파일로 내보내기/가져오기"는 디자인 모드의 레이아웃 파일 저장·불러오기와 같은 기능(state 전체+직접 넣은 글꼴). 가져올 때 `syncBase`는 이 기기 값을 유지
   - GitHub 저장 위치: `state/current.json`(작업 전체)과 `records/YYYY/YYYY-MM-DD.json`(주차별 기록)
   - 열쇠는 fine-grained PAT, `jubo-records`의 Contents 읽기·쓰기 권한만 줌. localStorage 키 `jungdeungbu-bulletin-v1-github`에 저장하고, state와 레이아웃 파일에는 넣지 않음
@@ -149,5 +149,5 @@
    - React, TypeScript, Vite, GitHub Actions로 Pages에 배포
    - 옮기는 순서: 주보·썸네일 그리기 → 매주 입력 → 저장(모바일 공유 포함) → 카톡·유튜브 글 → 기록 → 디자인 편집기(PC 전용)
    - 아이폰 사파리에서 html-to-image 글꼴이 빠지는 문제는 초기에 시험해야 함
-5. 구글 시트 저장(공용 비밀번호 + Apps Script)을 만들었음(2026-10-25). 사용자가 `apps-script/README.md` 순서대로 배포하고 실제로 저장되는지 확인 필요
+5. 구글 시트 저장(공용 비밀번호 + Apps Script)을 만들고 PC에서 실제 저장까지 확인함(2026-10-25). 휴대폰 연결은 아직 확인 전
 6. 이전에 쓰던 Canva 스킬(`jubo-update`)은 토큰 문제로 쓰지 않음

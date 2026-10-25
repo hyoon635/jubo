@@ -256,6 +256,16 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
 .tw .ps{top:650px;font-size:50px;color:#5a6478}
 .tw .pr{position:absolute;left:50%;top:776px;height:72px;transform:translateX(-50%);background:linear-gradient(90deg,#f48fb1 0%,#d29be0 50%,#5fa9f2 100%);color:#fff;font-size:42px;line-height:72px;padding:0 70px;border-radius:36px;white-space:nowrap}
 @media print{.thumbs{display:none!important}}
+.tscaler .tpage{cursor:zoom-in}
+/* 썸네일 크게 보기: 버튼·휠·두 손가락으로 확대/축소, 끌어서 이동 */
+#thumbView{position:fixed;inset:0;z-index:100;background:rgba(20,12,20,.85);display:flex;flex-direction:column}
+.tbbar{display:flex;gap:6px;align-items:center;justify-content:center;padding:10px 16px;flex-wrap:wrap}
+#tbPct{min-width:52px;text-align:center;color:#fff;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+#tbClose{margin-left:12px}
+#tbView{flex:1;min-height:0;overflow:auto;display:flex;padding:16px;cursor:grab;touch-action:pan-x pan-y}
+#tbView.drag{cursor:grabbing}
+#tbStage{margin:auto;position:relative;flex:none}
+#tbStage .tpage{cursor:inherit}
 
 #saveBox{position:fixed;inset:0;z-index:100;background:rgba(30,15,25,.45);display:grid;place-items:center;padding:16px}
 .savecard{background:var(--panel);color:var(--fg);border-radius:16px;padding:20px;display:grid;gap:12px;width:min(720px,100%);box-shadow:0 12px 40px rgba(0,0,0,.25)}
@@ -374,8 +384,8 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
       <div id="panelProps" hidden></div>
       <div id="panelSync" hidden>
         <fieldset>
-          <legend>GitHub 저장</legend>
-          <div id="syncStatus" class="note">GitHub 열쇠를 넣으면 PC와 휴대폰에서 같은 내용을 이어서 쓸 수 있어요.</div>
+          <legend>저장 · 이어서 쓰기</legend>
+          <div id="syncStatus" class="note">구글 시트나 GitHub를 연결하면 PC와 휴대폰에서 같은 내용을 이어서 쓸 수 있어요.</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button type="button" class="btn primary small" id="syncSave">지금 저장</button>
             <button type="button" class="btn small" id="syncPull">저장된 내용 불러오기</button>
@@ -384,9 +394,23 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
         </fieldset>
         <fieldset>
           <legend>지난 주보</legend>
-          <div id="recList" class="order"><p class="hint" style="margin:0">GitHub 열쇠를 넣으면 목록이 나와요.</p></div>
+          <div id="recList" class="order"><p class="hint" style="margin:0">구글 시트나 GitHub를 연결하면 목록이 나와요.</p></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn small" id="recReload">목록 새로고침</button><button type="button" class="btn small" id="recCsv">엑셀용 파일(CSV) 내려받기</button></div>
         </fieldset>
+        <fieldset>
+          <legend>파일로 보관</legend>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn small" id="fileExport">파일로 내보내기</button><button type="button" class="btn small" id="fileImport">파일 가져오기</button></div>
+          <p class="hint" style="margin:0">지금 주보 내용과 모양을 .json 파일 하나로 내려받아요. 연결 없이도 다른 기기에서 "파일 가져오기"로 이어서 쓸 수 있어요.</p>
+        </fieldset>
+        <details id="gsSetup" class="fold">
+          <summary>구글 시트 연결 설정 <span class="sub">추천 · 비밀번호만 있으면 돼요</span></summary>
+          <div>
+            <label>시트 저장 주소 (웹 앱 URL) <input id="gsUrl" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
+            <label>비밀번호 <input id="gsPass" type="password" autocomplete="off"></label>
+            <p class="hint" style="margin:0">주소와 비밀번호는 이 기기의 브라우저에만 저장돼요. 구글 시트를 연결하면 GitHub 대신 시트에 저장해요. 처음 한 번 시트에 Apps Script를 배포해야 해요(<a href="apps-script/README.md" target="_blank" rel="noopener">설치 안내</a> · <a href="apps-script/Code.gs" target="_blank" rel="noopener">코드</a>).</p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn small" id="gsTest">연결 확인</button><button type="button" class="btn small danger" id="gsForget">이 기기에서 연결 지우기</button></div>
+          </div>
+        </details>
         <details id="syncSetup" class="fold">
           <summary>GitHub 연결 설정</summary>
           <div>
@@ -487,6 +511,10 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
 </div>
 <button class="pv-fab" id="previewFab" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>주보 미리보기 · 저장</button>
 <div id="saveBox" hidden></div>
+<div id="thumbView" hidden role="dialog" aria-label="썸네일 크게 보기">
+  <div class="tbbar"><button type="button" class="btn small" id="tbOut" aria-label="축소">−</button><button type="button" class="btn small" id="tbFitBtn">맞춤</button><button type="button" class="btn small" id="tbIn" aria-label="확대">+</button><span id="tbPct"></span><button type="button" class="btn small" id="tbClose">닫기</button></div>
+  <div id="tbView"><div id="tbStage"></div></div>
+</div>
 <input type="file" id="imgFile" accept="image/*" hidden>
 <input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2" hidden>
 <input type="file" id="jsonFile" accept="application/json,.json" hidden>
@@ -858,7 +886,7 @@ function thumbsHTML(){
     <path d="M93 0V275L192 239L291 275V0" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="5 5"/>
     <line x1="127" y1="164" x2="258" y2="164" stroke="#fff" stroke-width="3"/>${spark(193,205,19,'#fff')}
     <rect x="953" y="152" width="14" height="104" rx="3" fill="url(#twCross)"/><rect x="931" y="183" width="58" height="13" rx="3" fill="url(#twCross)"/>
-    ${ray(960,130,960,146,'#c7b1ee')}${ray(902,152,914,165,'#f3a3bf')}${ray(1018,152,1006,165,'#8fb8f5')}${ray(872,194,890,198,'#f3a3bf')}${ray(1030,198,1048,194,'#8fb8f5')}${ray(1020,238,1034,244,'#f6c4d4')}    ${spark(356,640,48,'url(#twPink)')}${spark(1576,396,52,'#b6a9f0')}
+    ${ray(960,116,960,132,'#c7b1ee')}${ray(892,142,904,155,'#f3a3bf')}${ray(1028,142,1016,155,'#8fb8f5')}${ray(860,194,878,198,'#f3a3bf')}${ray(1042,198,1060,194,'#8fb8f5')}${ray(889,243,875,249,'#f6c4d4')}${ray(1031,243,1045,249,'#f6c4d4')}    ${spark(356,640,48,'url(#twPink)')}${spark(1576,396,52,'#b6a9f0')}
     <line x1="755" y1="901" x2="918" y2="901" stroke="url(#twLine)" stroke-width="2.5"/><line x1="1002" y1="901" x2="1165" y2="901" stroke="url(#twLine)" stroke-width="2.5"/>${spark(960,901,26,'url(#twLine)')}
   </svg>`;
   return `<section class="thumbs"><div class="plabel">썸네일 <span>예배 영상 1920×1080 · 찬양대 1920×1080</span></div>
@@ -909,6 +937,45 @@ function fit(){
 }
 new ResizeObserver(()=>fit()).observe($('pages'));
 $('zoom').onchange=()=>{ zoom=$('zoom').value; try{localStorage.setItem(KEY+'-zoom',zoom);}catch(e){} fit(); };
+
+/* ───────── 썸네일 크게 보기 ───────── */
+let tb=null;
+function openThumb(src){
+  const c=src.cloneNode(true); c.removeAttribute('id'); $('tbStage').replaceChildren(c);
+  tb={el:c,W:+src.dataset.w,H:+src.dataset.h,k:1}; $('thumbView').hidden=false; tbZoom(tbFit());
+}
+const closeThumb=()=>{ $('thumbView').hidden=true; $('tbStage').replaceChildren(); tb=null; };
+const tbFit=()=>{ const v=$('tbView'); return Math.min((v.clientWidth-32)/tb.W,(v.clientHeight-32)/tb.H); };
+/* 확대/축소해도 (cx,cy) 아래 지점이 그대로 있게 스크롤을 맞춤 */
+function tbZoom(k,cx,cy){
+  const v=$('tbView'), st=$('tbStage'), vr=v.getBoundingClientRect();
+  k=Math.min(3,Math.max(.05,k)); if(cx==null){ cx=v.clientWidth/2; cy=v.clientHeight/2; }
+  const r=st.getBoundingClientRect(), px=(vr.left+cx-r.left)/tb.k, py=(vr.top+cy-r.top)/tb.k;
+  tb.k=k; st.style.width=tb.W*k+'px'; st.style.height=tb.H*k+'px'; tb.el.style.transform=`scale(${k})`;
+  const r2=st.getBoundingClientRect(); v.scrollLeft+=r2.left+px*k-(vr.left+cx); v.scrollTop+=r2.top+py*k-(vr.top+cy);
+  $('tbPct').textContent=Math.round(k*100)+'%';
+}
+$('pages').addEventListener('click',e=>{ const t=e.target.closest('.tscaler .tpage'); if(t) openThumb(t); });
+$('tbIn').onclick=()=>tbZoom(tb.k*1.25); $('tbOut').onclick=()=>tbZoom(tb.k/1.25);
+$('tbFitBtn').onclick=()=>tbZoom(tbFit()); $('tbClose').onclick=closeThumb;
+{
+  const v=$('tbView'); let drag=null, pinch=null;
+  const at=(x,y)=>{ const r=v.getBoundingClientRect(); return [x-r.left,y-r.top]; };
+  v.addEventListener('wheel',e=>{ e.preventDefault(); tbZoom(tb.k*Math.exp(-e.deltaY*.0015),...at(e.clientX,e.clientY)); },{passive:false});
+  v.addEventListener('pointerdown',e=>{ if(e.pointerType!=='mouse'||e.button!==0) return; drag={x:e.clientX,y:e.clientY,sl:v.scrollLeft,st:v.scrollTop,moved:false,bg:e.target===v}; v.classList.add('drag'); v.setPointerCapture(e.pointerId); });
+  v.addEventListener('pointermove',e=>{ if(!drag) return; const dx=e.clientX-drag.x, dy=e.clientY-drag.y; if(Math.abs(dx)+Math.abs(dy)>4) drag.moved=true; v.scrollLeft=drag.sl-dx; v.scrollTop=drag.st-dy; });
+  const end=e=>{ if(!drag) return; const d=drag; drag=null; v.classList.remove('drag'); if(!d.moved&&d.bg&&e.type==='pointerup') closeThumb(); };
+  v.addEventListener('pointerup',end); v.addEventListener('pointercancel',end);
+  const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+  v.addEventListener('touchstart',e=>{ if(e.touches.length===2) pinch={d:dist(e.touches),k:tb.k}; },{passive:true});
+  v.addEventListener('touchmove',e=>{ if(!pinch||e.touches.length!==2) return; e.preventDefault(); const t=e.touches; tbZoom(pinch.k*dist(t)/pinch.d,...at((t[0].clientX+t[1].clientX)/2,(t[0].clientY+t[1].clientY)/2)); },{passive:false});
+  v.addEventListener('touchend',e=>{ if(e.touches.length<2) pinch=null; });
+  document.addEventListener('keydown',e=>{
+    if($('thumbView').hidden) return;
+    const act={Escape:closeThumb,'+':()=>tbZoom(tb.k*1.25),'=':()=>tbZoom(tb.k*1.25),'-':()=>tbZoom(tb.k/1.25),'0':()=>tbZoom(tbFit())}[e.key];
+    if(act){ e.preventDefault(); e.stopImmediatePropagation(); act(); }
+  },true);
+}
 
 function checkOverflow(){
   document.querySelectorAll('.page .w-text').forEach(el=>{
@@ -1153,6 +1220,7 @@ const opt=(arr,v)=>arr.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}
 const segBtns=(key,arr,v)=>`<div class="seg">${arr.map(([k,l])=>`<button type="button" class="btn small${k===v?' on':''}" data-k="${key}" data-v="${k}">${l}</button>`).join('')}</div>`;
 const num=(key,label,v,step=1,min=0)=>`<label>${label} <input type="number" id="pp-${key}" data-k="${key}" value="${v}" step="${step}" min="${min}"></label>`;
 function showTab(t){
+  if(!booting) try{ sessionStorage.setItem(KEY+'-tab',t); }catch(e){}
   [['week','tabWeek','panelWeek'],['props','tabProps','panelProps'],['fonts','tabFonts','panelFonts'],['share','tabShare','panelShare'],['sync','tabSync','panelSync']].forEach(([k,tb,pn])=>{ $(tb).setAttribute('aria-selected',t===k); $(pn).hidden=t!==k; });
   if(t==='fonts') renderFontPanel();
   if(t==='share') renderShare();
@@ -1431,8 +1499,8 @@ function download(url,name){ const a=document.createElement('a'); a.href=url; a.
 document.querySelectorAll('.menu .pop button').forEach(b=>b.addEventListener('click',()=>b.closest('details').open=false));
 $('layoutSave').onclick=()=>{
   const blob=new Blob([JSON.stringify({app:'jungdeungbu-bulletin',version:3,state,fonts:customFonts},null,1)],{type:'application/json'});
-  const url=URL.createObjectURL(blob); download(url,`중등부_주보_레이아웃_${state.date.replace(/-/g,'').slice(2)}.json`); setTimeout(()=>URL.revokeObjectURL(url),2000);
-  status('레이아웃 파일을 저장했어요. 다른 컴퓨터에서 불러올 수 있어요.');
+  const url=URL.createObjectURL(blob); download(url,`중등부_주보_${state.date.replace(/-/g,'').slice(2)}.json`); setTimeout(()=>URL.revokeObjectURL(url),2000);
+  status('주보 파일을 저장했어요. 다른 기기에서 "파일 가져오기"로 불러올 수 있어요.');
 };
 $('layoutLoad').onclick=()=>{ $('jsonFile').value=''; $('jsonFile').click(); };
 $('jsonFile').onchange=async()=>{
@@ -1440,13 +1508,14 @@ $('jsonFile').onchange=async()=>{
   try{
     const data=JSON.parse(await f.text()); const s=data.state||data;
     if(!s.layout||!Array.isArray(s.layout.pages)) throw new Error('bad');
-    state=Object.assign(clone(WEEK),s); sel=null;
+    /* 동기화 기준 시각은 이 기기 것을 유지해야 다른 기기 저장분과 엉뚱하게 비교하지 않음 */
+    const syncBase=state.syncBase; state=Object.assign(clone(WEEK),s); state.syncBase=syncBase; sel=null;
     if(Array.isArray(data.fonts)){ for(const f of data.fonts){ try{ await idb.put(f); }catch(e){} } customFonts=data.fonts; }
     if(!state.fontRoles) state.fontRoles={title:'Bithumb Gothic',body:'Pretendard',badge:'Bithumb Gothic',retro:'Pretendard'};
     applyFonts();
     fillWeekPanel(); renderAll(); showProps(); save(); snapshot();
-    status('레이아웃 파일을 불러왔어요.');
-  }catch(e){ status('이 파일은 주보 레이아웃 파일이 아니에요. "레이아웃 파일로 저장"으로 만든 .json 파일을 골라 주세요.'); }
+    status('주보 파일을 불러왔어요. ↶ 취소로 되돌릴 수 있어요.');
+  }catch(e){ status('이 파일은 주보 파일이 아니에요. "파일로 내보내기"(또는 "레이아웃 파일로 저장")로 만든 .json 파일을 골라 주세요.'); }
 };
 $('layoutReset').onclick=()=>{ state.layout=defaultLayout(); sel=null; renderPages(); showProps(); save(); snapshot(); status('처음 주보 모양으로 되돌렸어요. ↶ 취소로 되살릴 수 있어요.'); };
 
@@ -1833,24 +1902,63 @@ function weekRecord(){
     nextPrayer:state.nextPrayer,nextOffering:state.nextOffering,offeringTeam:state.offeringTeam,
     shareWorshipUrl:state.shareWorshipUrl,shareChoirUrl:state.shareChoirUrl,shareOrigDate:state.shareOrigDate,shareOrigTitle:state.shareOrigTitle,shareOrigUrl:state.shareOrigUrl};
 }
+
+/* ───────── 구글 시트 저장 (Apps Script 웹 앱 + 공용 비밀번호, apps-script/Code.gs) ───────── */
+const GS_KEY=KEY+'-gsheet';
+let gs={url:'',pass:''};
+try{ Object.assign(gs,JSON.parse(localStorage.getItem(GS_KEY)||'{}')); }catch(e){}
+const gsSaveCfg=()=>{ try{ localStorage.setItem(GS_KEY,JSON.stringify(gs)); }catch(e){} };
+async function gsCall(action,data={}){
+  /* text/plain으로 보내야 브라우저가 사전 요청(CORS preflight)을 안 해서 Apps Script가 받을 수 있음 */
+  let r;
+  try{ r=await fetch(gs.url,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({pass:gs.pass,action,...data})}); }
+  catch(e){ throw new Error('시트 저장 주소에 연결하지 못했어요. 주소와 인터넷 연결, 배포의 액세스가 "모든 사용자"인지 확인해 주세요.'); }
+  let j; try{ j=await r.json(); }catch(e){ throw new Error('시트 저장 주소가 맞는지 확인해 주세요. "/exec"로 끝나는 웹 앱 주소여야 해요.'); }
+  if(j.error) throw new Error(j.error);
+  return j;
+}
+
+/* 저장소: 구글 시트를 연결했으면 시트, 아니면 GitHub. 둘 다 같은 모양으로 씀 */
+const STORES={
+  sheet:{name:'구글 시트',on:()=>!!(gs.url&&gs.pass),
+    getState:async()=>(await gsCall('getState')).state||null,
+    putState:s=>gsCall('putState',{state:s}),
+    putRecord:r=>gsCall('putRecord',{record:r}),
+    listRecords:async()=>(await gsCall('listRecords')).dates||[],
+    getRecord:async d=>(await gsCall('getRecord',{date:d})).record,
+    test:async()=>`<span class="ok">"${esc((await gsCall('ping')).name)}" 시트에 연결됐어요.</span>`},
+  github:{name:'GitHub',on:()=>!!gh.token,
+    getState:async()=>{ const f=await ghGet('state/current.json'); if(!f&&!(await ghRepoOk())) throw new Error(GH_NOREPO); return f&&f.data; },
+    putState:s=>ghPut('state/current.json',s,`작업 내용 저장 ${state.date}`),
+    putRecord:r=>ghPut(`records/${r.date.slice(0,4)}/${r.date}.json`,r,`${r.date} 주보 기록`),
+    listRecords:async()=>{
+      try{ const tree=await ghApi('git/trees/HEAD?recursive=1'); return (tree?tree.tree:[]).map(t=>(t.path.match(/^records\/\d{4}\/(\d{4}-\d{2}-\d{2})\.json$/)||[])[1]).filter(Boolean); }
+      catch(e){ if(e.status===409) return []; throw e; }
+    },
+    getRecord:async d=>{ const f=await ghGet(`records/${d.slice(0,4)}/${d}.json`); return f&&f.data; },
+    test:async()=>{ const r=await ghApi(''); if(!r) throw new Error(GH_NOREPO); return `<span class="ok">${esc(r.full_name)} 저장소에 연결됐어요.</span>${r.private?'':' <span class="warn">공개 저장소예요. 기록은 비공개 저장소에 두는 걸 권해요.</span>'}`; }}
+};
+const store=()=>STORES.sheet.on()?STORES.sheet:STORES.github.on()?STORES.github:null;
+const NO_STORE='<span class="warn">먼저 아래 "구글 시트 연결 설정"(또는 GitHub 연결 설정)을 해 주세요.</span>';
+
 let syncing=false;
 async function syncSave(quiet,force){
-  if(!gh.token||syncing) return false;
-  syncing=true; syncNote('GitHub에 저장하는 중…');
+  const st=store(); if(!st||syncing) return false;
+  syncing=true; syncNote(`${st.name}에 저장하는 중…`);
   try{
     /* 다른 기기에서 더 나중에 저장한 내용이 있으면 덮어쓰지 않고 먼저 물어봄 */
-    if(!force){ const cur=await ghGet('state/current.json');
-      if(cur&&(cur.data.updatedAt||0)>(state.syncBase||0)+1000){ showRemoteBanner(cur.data,true); syncNote('<span class="warn">다른 기기에서 더 나중에 저장한 내용이 있어서 저장을 멈췄어요. 위 안내에서 골라 주세요.</span>'); return false; } }
+    if(!force){ const cur=await st.getState();
+      if(cur&&(cur.updatedAt||0)>(state.syncBase||0)+1000){ showRemoteBanner(cur,true); syncNote('<span class="warn">다른 기기에서 더 나중에 저장한 내용이 있어서 저장을 멈췄어요. 위 안내에서 골라 주세요.</span>'); return false; } }
     state.syncBase=state.updatedAt||Date.now();
     const snap=JSON.parse(JSON.stringify(state)); delete snap.sheetCache;
-    await ghPut('state/current.json',snap,`작업 내용 저장 ${state.date}`);
-    await ghPut(`records/${state.date.slice(0,4)}/${state.date}.json`,weekRecord(),`${state.date} 주보 기록`);
+    await st.putState(snap);
+    await st.putRecord(weekRecord());
     dirtySync=false; try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){}
-    syncNote(`<span class="ok">${fmtTime(Date.now())}에 GitHub에 저장했어요.</span>`);
-    if(!quiet) status('GitHub에 저장했어요.');
+    syncNote(`<span class="ok">${fmtTime(Date.now())}에 ${st.name}에 저장했어요.</span>`);
+    if(!quiet) status(`${st.name}에 저장했어요.`);
     if(!$('panelSync').hidden) loadRecords();
     return true;
-  }catch(e){ console.error(e); syncNote(`<span class="warn">저장하지 못했어요. ${esc(e.message)}</span>`); if(!quiet) status('GitHub에 저장하지 못했어요.'); return false; }
+  }catch(e){ console.error(e); syncNote(`<span class="warn">저장하지 못했어요. ${esc(e.message)}</span>`); if(!quiet) status(`${st.name}에 저장하지 못했어요.`); return false; }
   finally{ syncing=false; }
 }
 function applyRemoteState(remote){
@@ -1860,13 +1968,13 @@ function applyRemoteState(remote){
   sel=null; fillWeekPanel(); applyFonts(); renderAll(); showProps(); snapshot();
 }
 async function syncCheck(){
-  if(!gh.token) return;
+  const st=store(); if(!st) return;
   try{
-    const f=await ghGet('state/current.json'); if(!f){ syncNote((await ghRepoOk())?'GitHub에 아직 저장된 내용이 없어요. "지금 저장"을 눌러 주세요.':`<span class="warn">${GH_NOREPO}</span>`); return; }
-    const remote=f.data, rt=remote.updatedAt||0;
+    const remote=await st.getState(); if(!remote){ syncNote(`${st.name}에 아직 저장된 내용이 없어요. "지금 저장"을 눌러 주세요.`); return; }
+    const rt=remote.updatedAt||0;
     if(rt>(state.syncBase||0)+1000) showRemoteBanner(remote,false);
-    syncNote(`GitHub 연결됨 · 마지막 저장 ${fmtTime(rt)}`);
-  }catch(e){ syncNote(`<span class="warn">GitHub에 연결하지 못했어요. ${esc(e.message)}</span>`); }
+    syncNote(`${st.name} 연결됨 · 마지막 저장 ${fmtTime(rt)}`);
+  }catch(e){ syncNote(`<span class="warn">${st.name}에 연결하지 못했어요. ${esc(e.message)}</span>`); }
 }
 function showRemoteBanner(remote,fromSave){
   const b=$('syncBanner'), rt=remote.updatedAt||0; b.hidden=false;
@@ -1878,30 +1986,29 @@ function showRemoteBanner(remote,fromSave){
 }
 let records=[];
 async function loadRecords(){
-  const box=$('recList'); if(!gh.token){ box.innerHTML='<p class="hint" style="margin:0">GitHub 열쇠를 넣으면 목록이 나와요.</p>'; return; }
+  const box=$('recList'), st=store(); if(!st){ box.innerHTML='<p class="hint" style="margin:0">구글 시트나 GitHub를 연결하면 목록이 나와요.</p>'; return; }
   box.innerHTML='<p class="hint" style="margin:0">불러오는 중…</p>';
   try{
-    const tree=await ghApi('git/trees/HEAD?recursive=1');
-    records=(tree?tree.tree:[]).filter(t=>/^records\/\d{4}\/\d{4}-\d{2}-\d{2}\.json$/.test(t.path)).map(t=>t.path).sort().reverse();
-    box.innerHTML=records.length?records.map(p=>{ const d=p.match(/(\d{4}-\d{2}-\d{2})/)[1]; return `<div class="orow" style="grid-template-columns:1fr auto"><span>${d.replace(/-/g,'.')}${d===state.date?' <b style="color:var(--accent)">· 지금 주보</b>':''}</span><button type="button" class="btn small" data-rec="${esc(p)}">불러오기</button></div>`; }).join(''):'<p class="hint" style="margin:0">아직 쌓인 기록이 없어요.</p>';
-  }catch(e){ box.innerHTML=e.status===409?'<p class="hint" style="margin:0">아직 쌓인 기록이 없어요.</p>':`<p class="warn" style="margin:0">${esc(e.message)}</p>`; }
+    records=(await st.listRecords()).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse();
+    box.innerHTML=records.length?records.map(d=>`<div class="orow" style="grid-template-columns:1fr auto"><span>${d.replace(/-/g,'.')}${d===state.date?' <b style="color:var(--accent)">· 지금 주보</b>':''}</span><button type="button" class="btn small" data-rec="${esc(d)}">불러오기</button></div>`).join(''):'<p class="hint" style="margin:0">아직 쌓인 기록이 없어요.</p>';
+  }catch(e){ box.innerHTML=`<p class="warn" style="margin:0">${esc(e.message)}</p>`; }
 }
 const REC_KEYS=['date','host','praise','order','bible','memRef','memText','nextPrayer','nextOffering','shareWorshipUrl','shareChoirUrl','shareOrigDate','shareOrigTitle','shareOrigUrl'];
 $('recList').addEventListener('click',async e=>{
   const b=e.target.closest('[data-rec]'); if(!b) return;
   if(b.dataset.armed!=='1'){ b.dataset.armed='1'; b.textContent='한 번 더 누르면 지금 내용을 바꿔요'; setTimeout(()=>{ b.dataset.armed=''; b.textContent='불러오기'; },3500); return; }
   try{
-    const f=await ghGet(b.dataset.rec); if(!f) return;
-    REC_KEYS.forEach(k=>{ if(f.data[k]!==undefined) state[k]=JSON.parse(JSON.stringify(f.data[k])); });
+    const rec=await store().getRecord(b.dataset.rec); if(!rec) return;
+    REC_KEYS.forEach(k=>{ if(rec[k]!==undefined) state[k]=JSON.parse(JSON.stringify(rec[k])); });
     if(state.memRef&&state.memText) state.verseLib[refKey(state.memRef)]=state.memText;
-    save(); fillWeekPanel(); renderAll(); loadRecords(); status(`${f.data.date} 주보를 불러왔어요.`);
+    save(); fillWeekPanel(); renderAll(); loadRecords(); status(`${rec.date} 주보를 불러왔어요.`);
   }catch(err){ status('기록을 불러오지 못했어요.'); }
 });
 $('recCsv').onclick=async()=>{
   if(!records.length) await loadRecords(); if(!records.length) return;
   status('기록을 모으는 중…');
   try{
-    const rows=[]; for(const p of records){ const f=await ghGet(p); if(f) rows.push(f.data); }
+    const st=store(), rows=[]; for(const d of records){ const r=await st.getRecord(d); if(r) rows.push(r); }
     const cols=[['date','날짜'],['title','말씀 제목'],['passage','본문'],['preacher','설교자'],['song','찬양대 곡'],['choir','찬양대'],['bible','성경 읽기'],['memRef','암송 구절'],['memText','암송 본문'],['nextPrayer','다음 주 대표기도'],['nextOffering','다음 주 헌금기도'],['offeringTeam','헌금위원'],['shareWorshipUrl','예배 영상'],['shareChoirUrl','찬양대 영상']];
     const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
     const order=r=>(r.order||[]).map(x=>x.filter(Boolean).join(' / ')).join(' | ');
@@ -1912,21 +2019,31 @@ $('recCsv').onclick=async()=>{
 };
 function renderSyncPanel(){
   $('ghRepo').value=gh.repo; $('ghToken').value=gh.token?'••••••••':'';
-  if(!gh.token){ $('syncSetup').open=true; syncNote('GitHub 열쇠를 넣으면 PC와 휴대폰에서 같은 내용을 이어서 쓸 수 있어요.'); }
+  $('gsUrl').value=gs.url; $('gsPass').value=gs.pass?'••••••••':'';
+  if(!store()){ $('gsSetup').open=true; syncNote('구글 시트나 GitHub를 연결하면 PC와 휴대폰에서 같은 내용을 이어서 쓸 수 있어요.'); }
   loadRecords();
 }
+const gsChanged=()=>{ gsSaveCfg(); if(STORES.sheet.on()){ syncCheck(); loadRecords(); } };
+$('gsUrl').onchange=()=>{ gs.url=$('gsUrl').value.trim(); gsChanged(); };
+$('gsPass').onchange=()=>{ const v=$('gsPass').value; if(v&&!/^•+$/.test(v)){ gs.pass=v; $('gsPass').value='••••••••'; gsChanged(); } };
+$('gsTest').onclick=async()=>{ if(!STORES.sheet.on()) return syncNote('<span class="warn">시트 저장 주소와 비밀번호를 둘 다 넣어 주세요.</span>'); try{ syncNote(await STORES.sheet.test()); }catch(e){ syncNote(`<span class="warn">${esc(e.message)}</span>`); } };
+$('gsForget').onclick=()=>{ gs={url:'',pass:''}; gsSaveCfg(); renderSyncPanel(); };
+
+/* ───────── 파일로 내보내기 · 가져오기 (연결 없이 기기 옮기기·백업) ───────── */
+$('fileExport').onclick=()=>$('layoutSave').onclick();
+$('fileImport').onclick=()=>$('layoutLoad').onclick();
 $('ghRepo').onchange=()=>{ gh.repo=$('ghRepo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/$/,''); ghSaveCfg(); };
 $('ghToken').onchange=()=>{ const v=$('ghToken').value.trim(); if(v&&!/^•+$/.test(v)){ gh.token=v; ghSaveCfg(); $('ghToken').value='••••••••'; syncCheck(); loadRecords(); } };
-$('ghTest').onclick=async()=>{ try{ const r=await ghApi(''); syncNote(r?`<span class="ok">${esc(r.full_name)} 저장소에 연결됐어요.</span>${r.private?'':' <span class="warn">공개 저장소예요. 기록은 비공개 저장소에 두는 걸 권해요.</span>'}`:`<span class="warn">${GH_NOREPO}</span>`); }catch(e){ syncNote(`<span class="warn">${esc(e.message)}</span>`); } };
+$('ghTest').onclick=async()=>{ try{ syncNote(await STORES.github.test()); }catch(e){ syncNote(`<span class="warn">${esc(e.message)}</span>`); } };
 $('ghForget').onclick=()=>{ gh.token=''; ghSaveCfg(); renderSyncPanel(); };
-$('syncSave').onclick=()=>{ if(!gh.token){ $('syncSetup').open=true; syncNote('<span class="warn">먼저 아래 "GitHub 연결 설정"에서 열쇠를 넣어 주세요.</span>'); return; } syncSave(false); };
-$('syncPull').onclick=async()=>{ if(!gh.token) return $('syncSave').onclick(); try{ const f=await ghGet('state/current.json'); if(!f) return syncNote((await ghRepoOk())?'저장된 내용이 아직 없어요.':`<span class="warn">${GH_NOREPO}</span>`); applyRemoteState(f.data); syncNote(`<span class="ok">${fmtTime(f.data.updatedAt||Date.now())}에 저장한 내용을 불러왔어요.</span>`); }catch(e){ syncNote(`<span class="warn">${esc(e.message)}</span>`); } };
+$('syncSave').onclick=()=>{ if(!store()){ $('gsSetup').open=true; syncNote(NO_STORE); return; } syncSave(false); };
+$('syncPull').onclick=async()=>{ const st=store(); if(!st) return $('syncSave').onclick(); try{ const s=await st.getState(); if(!s) return syncNote('저장된 내용이 아직 없어요.'); applyRemoteState(s); syncNote(`<span class="ok">${fmtTime(s.updatedAt||Date.now())}에 저장한 내용을 불러왔어요.</span>`); }catch(e){ syncNote(`<span class="warn">${esc(e.message)}</span>`); } };
 $('tabSync').onclick=()=>showTab('sync');
 /* 페이지를 떠날 때(휴대폰에서 다른 앱으로 넘어갈 때 포함) 바뀐 내용이 있으면 저장 */
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'&&dirtySync&&gh.token) syncSave(true); });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'&&dirtySync&&store()) syncSave(true); });
 
 /* ───────── 시작 ───────── */
-fillWeekPanel(); renderAll(); showProps(); snapshot(); updUndo(); setDesign(false); syncSheetNote(); loadSheet(); applyFonts(); loadCustomFonts(); booting=false; dirtySync=false; syncCheck();
+fillWeekPanel(); renderAll(); showProps(); snapshot(); updUndo(); setDesign(false); try{ const t=sessionStorage.getItem(KEY+'-tab'); if(t==='share'||t==='sync') showTab(t); }catch(e){} syncSheetNote(); loadSheet(); applyFonts(); loadCustomFonts(); booting=false; dirtySync=false; syncCheck();
 document.fonts&&document.fonts.ready.then(()=>{ fit(); checkOverflow(); });
 /* 모바일 미리보기 창: 열면 뒤로 가기·Esc로 닫힘 */
 const isPreviewOpen=()=>document.body.classList.contains('preview-open');

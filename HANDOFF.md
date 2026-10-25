@@ -69,8 +69,15 @@
   - 글꼴은 모두 빗썸고딕 Original(리본 영문 포함, 없는 글자는 프리텐다드). 글꼴 탭 설정과 상관없이 PDF·이미지에 항상 넣음. 제목 그라데이션은 `.gtx`(fitThumbText가 넣는 span에 적용)
   - 제목이 길면 한 줄에 들어가게 글자 크기를 줄임
 - **카톡·유튜브 탭**: 카톡 전달 글과 유튜브 설명 글을 만들고 복사 버튼 제공. 유튜브 설명은 5,000자 한도 표시. 원작 설교 정보 입력 가능
-- **기록 탭 (GitHub 동기화)**
-  - 저장 위치: `state/current.json`(작업 전체)과 `records/YYYY/YYYY-MM-DD.json`(주차별 기록)
+- **기록 탭 (구글 시트 또는 GitHub 동기화, 2026-10-25 구글 시트 추가)**
+  - 저장소는 `STORES.sheet` / `STORES.github` 두 가지이고 같은 모양(getState·putState·putRecord·listRecords·getRecord·test)으로 씀. `store()`가 고름: 시트 주소+비밀번호가 있으면 시트, 아니면 GitHub 열쇠
+  - **구글 시트**: `apps-script/Code.gs`를 시트의 Apps Script 웹 앱(실행: 나, 액세스: 모든 사용자)으로 배포. 코드 맨 위 `PASSWORD`가 공용 비밀번호. 페이지는 `text/plain` POST(사전 요청 없음)로 `{pass, action, ...}`를 보냄. 설치 안내는 `apps-script/README.md`
+    - `_작업내용` 시트(숨김): state JSON을 4만 자씩 잘라 A열에 넣음. 각 조각 앞에 `~`를 붙여 수식·숫자로 바뀌지 않게 함
+    - `주보 기록` 시트: 날짜별 한 줄(보기용 열 + 마지막 열에 원본 JSON), 서식은 일반 텍스트(@), 날짜 내림차순 정렬
+    - 주소·비밀번호는 localStorage `jungdeungbu-bulletin-v1-gsheet`에만 저장
+    - 실제 구글 배포로는 아직 시험하지 않음. 브라우저에서 SpreadsheetApp 등을 흉내 낸 가짜 환경으로 Code.gs를 돌려 저장·불러오기·엇갈림 방지·조각 나눔을 확인함
+  - **파일로 보관**: 기록 탭의 "파일로 내보내기/가져오기"는 디자인 모드의 레이아웃 파일 저장·불러오기와 같은 기능(state 전체+직접 넣은 글꼴). 가져올 때 `syncBase`는 이 기기 값을 유지
+  - GitHub 저장 위치: `state/current.json`(작업 전체)과 `records/YYYY/YYYY-MM-DD.json`(주차별 기록)
   - 열쇠는 fine-grained PAT, `jubo-records`의 Contents 읽기·쓰기 권한만 줌. localStorage 키 `jungdeungbu-bulletin-v1-github`에 저장하고, state와 레이아웃 파일에는 넣지 않음
   - 엇갈림 방지: `state.syncBase`(마지막으로 맞춘 원격 updatedAt)보다 원격이 새로우면 덮어쓰지 않고 먼저 물어봄
   - 자동 저장 시점: PDF·썸네일 저장할 때, 페이지를 벗어날 때(visibilitychange)
@@ -142,5 +149,5 @@
    - React, TypeScript, Vite, GitHub Actions로 Pages에 배포
    - 옮기는 순서: 주보·썸네일 그리기 → 매주 입력 → 저장(모바일 공유 포함) → 카톡·유튜브 글 → 기록 → 디자인 편집기(PC 전용)
    - 아이폰 사파리에서 html-to-image 글꼴이 빠지는 문제는 초기에 시험해야 함
-5. 여러 선생님이 함께 쓰게 되면 공용 비밀번호와 구글 시트(Apps Script), 또는 Supabase와 구글 로그인을 검토. 지금은 혼자 쓰므로 GitHub 열쇠 방식
+5. 구글 시트 저장(공용 비밀번호 + Apps Script)을 만들었음(2026-10-25). 사용자가 `apps-script/README.md` 순서대로 배포하고 실제로 저장되는지 확인 필요
 6. 이전에 쓰던 Canva 스킬(`jubo-update`)은 토큰 문제로 쓰지 않음

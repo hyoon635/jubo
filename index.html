@@ -409,6 +409,7 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
             <label>비밀번호 <input id="gsPass" type="password" autocomplete="off"></label>
             <p class="hint" style="margin:0">주소와 비밀번호는 이 기기의 브라우저에만 저장돼요. 구글 시트를 연결하면 GitHub 대신 시트에 저장해요. 처음 한 번 시트에 Apps Script를 배포해야 해요(<a href="apps-script/README.md" target="_blank" rel="noopener">설치 안내</a> · <a href="apps-script/Code.gs" target="_blank" rel="noopener">코드</a>).</p>
             <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn small" id="gsTest">연결 확인</button><button type="button" class="btn small danger" id="gsForget">이 기기에서 연결 지우기</button></div>
+            <div id="gsNote" class="note" hidden></div>
           </div>
         </details>
         <details id="syncSetup" class="fold">
@@ -418,6 +419,7 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
             <label>GitHub 열쇠 (토큰) <input id="ghToken" type="password" placeholder="github_pat_…" autocomplete="off"></label>
             <p class="hint" style="margin:0">열쇠는 이 기기의 브라우저에만 저장되고, 레이아웃 파일에는 들어가지 않아요. PC와 휴대폰에서 각각 한 번씩 넣어 주세요.</p>
             <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn small" id="ghTest">연결 확인</button><button type="button" class="btn small danger" id="ghForget">이 기기에서 열쇠 지우기</button></div>
+            <div id="ghNote" class="note" hidden></div>
           </div>
         </details>
       </div>
@@ -2019,22 +2021,29 @@ $('recCsv').onclick=async()=>{
 };
 function renderSyncPanel(){
   $('ghRepo').value=gh.repo; $('ghToken').value=gh.token?'••••••••':'';
-  $('gsUrl').value=gs.url; $('gsPass').value=gs.pass?'••••••••':'';
+  $('gsUrl').value=gs.url; $('gsPass').value=gs.pass;
   if(!store()){ $('gsSetup').open=true; syncNote('구글 시트나 GitHub를 연결하면 PC와 휴대폰에서 같은 내용을 이어서 쓸 수 있어요.'); }
   loadRecords();
 }
 const gsChanged=()=>{ gsSaveCfg(); if(STORES.sheet.on()){ syncCheck(); loadRecords(); } };
 $('gsUrl').onchange=()=>{ gs.url=$('gsUrl').value.trim(); gsChanged(); };
-$('gsPass').onchange=()=>{ const v=$('gsPass').value; if(v&&!/^•+$/.test(v)){ gs.pass=v; $('gsPass').value='••••••••'; gsChanged(); } };
-$('gsTest').onclick=async()=>{ if(!STORES.sheet.on()) return syncNote('<span class="warn">시트 저장 주소와 비밀번호를 둘 다 넣어 주세요.</span>'); try{ syncNote(await STORES.sheet.test()); }catch(e){ syncNote(`<span class="warn">${esc(e.message)}</span>`); } };
-$('gsForget').onclick=()=>{ gs={url:'',pass:''}; gsSaveCfg(); renderSyncPanel(); };
+$('gsPass').onchange=()=>{ gs.pass=$('gsPass').value; gsChanged(); };
+/* 연결 확인 결과는 버튼 바로 아래에 보여 줌 (위쪽 상태 칸은 화면 밖일 때가 많음) */
+async function testConn(noteId,st,need){
+  const n=$(noteId), say=h=>{ n.hidden=false; n.innerHTML=h; syncNote(h); };
+  if(!st.on()) return say(`<span class="warn">${need}</span>`);
+  say('연결을 확인하는 중…');
+  try{ say(await st.test()); syncCheck(); loadRecords(); }catch(e){ say(`<span class="warn">${esc(e.message)}</span>`); }
+}
+$('gsTest').onclick=()=>{ gs.url=$('gsUrl').value.trim(); gs.pass=$('gsPass').value; gsSaveCfg(); testConn('gsNote',STORES.sheet,'시트 저장 주소와 비밀번호를 둘 다 넣어 주세요.'); };
+$('gsForget').onclick=()=>{ gs={url:'',pass:''}; gsSaveCfg(); $('gsNote').hidden=true; renderSyncPanel(); };
 
 /* ───────── 파일로 내보내기 · 가져오기 (연결 없이 기기 옮기기·백업) ───────── */
 $('fileExport').onclick=()=>$('layoutSave').onclick();
 $('fileImport').onclick=()=>$('layoutLoad').onclick();
 $('ghRepo').onchange=()=>{ gh.repo=$('ghRepo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/$/,''); ghSaveCfg(); };
 $('ghToken').onchange=()=>{ const v=$('ghToken').value.trim(); if(v&&!/^•+$/.test(v)){ gh.token=v; ghSaveCfg(); $('ghToken').value='••••••••'; syncCheck(); loadRecords(); } };
-$('ghTest').onclick=async()=>{ try{ syncNote(await STORES.github.test()); }catch(e){ syncNote(`<span class="warn">${esc(e.message)}</span>`); } };
+$('ghTest').onclick=()=>testConn('ghNote',STORES.github,'GitHub 열쇠를 먼저 넣어 주세요.');
 $('ghForget').onclick=()=>{ gh.token=''; ghSaveCfg(); renderSyncPanel(); };
 $('syncSave').onclick=()=>{ if(!store()){ $('gsSetup').open=true; syncNote(NO_STORE); return; } syncSave(false); };
 $('syncPull').onclick=async()=>{ const st=store(); if(!st) return $('syncSave').onclick(); try{ const s=await st.getState(); if(!s) return syncNote('저장된 내용이 아직 없어요.'); applyRemoteState(s); syncNote(`<span class="ok">${fmtTime(s.updatedAt||Date.now())}에 저장한 내용을 불러왔어요.</span>`); }catch(e){ syncNote(`<span class="warn">${esc(e.message)}</span>`); } };

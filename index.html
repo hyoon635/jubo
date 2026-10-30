@@ -913,9 +913,10 @@ function thumbsHTML(){
 /* 제목이 길면 한 줄에 들어가게 글자 크기를 줄임 */
 function fitThumbText(){
   document.querySelectorAll('.tpage [data-fit]').forEach(el=>{
-    el.style.fontSize=''; const cs=getComputedStyle(el), base=parseFloat(cs.fontSize);
+    /* span을 먼저 넣어야 함: span이 없을 땐 .gtx:not(:has(span)) 규칙이 좌우 여백을 덮어써서 남는 폭을 잘못 잼 */
+    el.style.fontSize=''; const inner=document.createElement('span'); inner.textContent=el.textContent; el.textContent=''; el.appendChild(inner);
+    const cs=getComputedStyle(el), base=parseFloat(cs.fontSize);
     const avail=el.parentElement.offsetWidth-parseFloat(cs.paddingLeft)*2;
-    const inner=document.createElement('span'); inner.textContent=el.textContent; el.textContent=''; el.appendChild(inner);
     const w=inner.offsetWidth; if(w>avail) el.style.fontSize=Math.max(20,base*avail/w)+'px';
   });
 }

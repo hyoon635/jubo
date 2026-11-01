@@ -400,6 +400,9 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
           <summary>썸네일 설정 <span class="sub">예배 영상 · 찬양대 썸네일</span></summary>
           <div>
             <p class="hint" style="margin:0">썸네일의 제목·본문·설교자·찬양곡은 예배 순서에서 자동으로 가져옵니다. 위쪽 <b>썸네일 저장</b>으로 내려받아요.</p>
+            <label>예배 영상 썸네일 제목 <textarea id="thumbTitleEdit" rows="2" data-thumb-edit="title"></textarea></label>
+            <label>찬양대 썸네일 제목 <textarea id="thumbSongEdit" rows="2" data-thumb-edit="song"></textarea></label>
+            <p class="hint" style="margin:0">처음엔 예배 순서의 말씀 제목·찬양곡이 들어 있어요. 여기서 고치면 썸네일에만 반영돼요. <b>Enter로 줄을 바꾸면 그 자리에서 나눠요</b>(안 바꾸면 길 때 자동으로 나눔). 비우면 예배 순서 내용으로 돌아가요.</p>
             <label>예배 영상 썸네일 윗줄 <input id="thumbChurch"></label>
             <label>찬양대 썸네일 아랫줄 <input id="thumbChoirChurch"></label>
           </div>
@@ -585,7 +588,7 @@ const WEEK={
   memRef:'마 16:16', memText:'시몬 베드로가 대답하여 이르되\n주는 그리스도시요 살아 계신 하나님의 아들이시니이다',
   verseLib:{'마16:16':'시몬 베드로가 대답하여 이르되\n주는 그리스도시요 살아 계신 하나님의 아들이시니이다'},
   nextPrayer:'윤다은 렘넌트', nextOffering:'양경민 선생님',
-  thumbChurch:'임마누엘서울교회 렘넌트서밋위원회 중등부', thumbChoirChurch:'임마누엘서울교회', thumbLogo:'',
+  thumbChurch:'임마누엘서울교회 렘넌트서밋위원회 중등부', thumbChoirChurch:'임마누엘서울교회', thumbLogo:'', thumbEdits:{},
   shareWorshipUrl:'https://youtu.be/lKE7qKkygGQ', shareChoirUrl:'https://youtu.be/DKzsZX6SDNA',
   shareOrigDate:'2026-09-19', shareOrigTitle:'26년 10월 학원복음화', shareOrigUrl:'https://youtu.be/P5Mbgo3npkM?si=r9SG9HOVAv1qYVR3',
   shareChurch:'임마누엘교회', shareOrigPreacher:'류광수 목사 (사)세계복음화전도협회 이사장', shareSource:'(사)세계복음화전도협회',
@@ -908,7 +911,7 @@ function renderPages(){
   if(editing) endEdit();
   TK=tokens();
   $('pages').innerHTML=state.layout.pages.map((pg,i)=>`<section><div class="plabel">${esc(pg.name)} <span>${esc(pg.sub||'')}</span></div><div class="scaler"><div class="page" data-page="${i}">${pg.ws.map(widgetEl).join('')}</div></div></section>`).join('')+thumbsHTML();
-  fit(); drawSel(); checkOverflow(); fitThumbText(); if($('panelShare')&&!$('panelShare').hidden) renderShare();
+  fit(); drawSel(); checkOverflow(); fitThumbText(); syncThumbEdits(); if($('panelShare')&&!$('panelShare').hidden) renderShare();
 }
 /* ───────── 썸네일 ───────── */
 function koDate(ds){ const [y,m,d]=String(ds).split('-').map(Number); return `${y}년 ${m}월 ${d}일`; }
@@ -917,6 +920,18 @@ function thumbData(){
   return {date:state.date, title:g('말씀제목',1), passage:g('오늘의말씀',1), preacher:g('말씀제목',2)||state.preacher,
     song:g('찬양',1), choir:g('찬양',2)||'다윗 찬양대'};
 }
+/* 썸네일 제목 직접 고치기: 고친 글은 그때의 원래 제목(src)과 같이 저장해서, 예배 순서의 제목이 바뀌면(다음 주) 저절로 원래대로 돌아감 */
+function thumbText(k){ const auto=thumbData()[k], e=(state.thumbEdits||{})[k]; return e&&e.src===auto&&e.text.trim()?e.text.trim():auto; }
+function syncThumbEdits(){
+  document.querySelectorAll('[data-thumb-edit]').forEach(ta=>{ if(document.activeElement!==ta) ta.value=thumbText(ta.dataset.thumbEdit); });
+}
+document.querySelectorAll('[data-thumb-edit]').forEach(ta=>ta.addEventListener('input',()=>{
+  const k=ta.dataset.thumbEdit, auto=thumbData()[k], v=ta.value.replace(/[ \t]+$/gm,'');
+  state.thumbEdits=state.thumbEdits||{};
+  if(!v.trim()||v.trim()===auto) delete state.thumbEdits[k]; else state.thumbEdits[k]={src:auto,text:v};
+  save(); renderPages();
+}));
+document.querySelectorAll('[data-thumb-edit]').forEach(ta=>ta.addEventListener('blur',syncThumbEdits));
 function thumbsHTML(){
   const d=thumbData();
   const clip=`<svg class="clip" viewBox="0 0 120 124" aria-hidden="true"><path d="M44 62 L52 18 a12 12 0 1 1 18 0 L78 62" fill="none" stroke="#183d78" stroke-width="7" stroke-linejoin="round"/><path d="M44 62 L52 18 a12 12 0 1 1 18 0 L78 62" fill="none" stroke="#fff" stroke-width="3"/><rect x="8" y="60" width="104" height="58" rx="6" fill="#f7a8bd" stroke="#183d78" stroke-width="2"/><rect x="2" y="114" width="116" height="8" rx="4" fill="#f7a8bd" stroke="#183d78" stroke-width="2"/></svg>`;
@@ -946,14 +961,14 @@ function thumbsHTML(){
       ${worship}<div class="rib">MIDDLE<br>SCHOOL</div>
       <div class="fitline c1">${esc(state.thumbChurch)}</div>
       <div class="fitline c2">${esc(koDate(d.date))} 중등부 예배</div>
-      <div class="fitline tt gtx" data-fit>${esc(d.title)}</div>
+      <div class="fitline tt gtx" data-fit>${esc(thumbText('title'))}</div>
       <div class="fitline ps">${d.passage?`(${esc(d.passage)})`:''}</div>
       ${d.preacher?`<div class="pr">${esc(d.preacher)}</div>`:''}
     </div></div>
     <div class="tscaler" style="position:relative"><div class="tpage tc" id="thumbChoir" data-w="1920" data-h="1080">
       <div class="shadow"></div><div class="card"></div>${clip}
       <div class="fitline dt">${esc(String(d.date).replace(/-/g,'.'))}</div>
-      <div class="fitline tt gtx" data-fit>${esc(d.song)}</div>
+      <div class="fitline tt gtx" data-fit>${esc(thumbText('song'))}</div>
       <div class="fitline ch">${esc(d.choir)}</div>
       <div class="fitline cc">${esc(state.thumbChoirChurch)}</div>
     </div></div>
@@ -978,6 +993,11 @@ function fitThumbText(){
       if(lines.length>1) el.style.lineHeight=LH;
       el.closest('.tpage').classList.toggle('multi',lines.length>1);
     };
+    /* 직접 줄을 바꿔 쓴 제목은 그 줄대로. 넓거나 높으면 글자만 줄임 */
+    if(text.includes('\n')){
+      const lines=text.split('\n').map(s=>s.trim()).filter(Boolean), w=Math.max(...lines.map(width));
+      return show(lines,Math.min(base,base*avail/w,lines.length>1?maxH/(lines.length*LH):Infinity));
+    }
     const one=width(text), words=text.split(/\s+/);
     if(one<=avail) return show([text],base);
     if(words.length<2) return show([text],base*avail/one);

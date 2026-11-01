@@ -165,6 +165,7 @@ kbd{font-family:var(--ui);font-size:11px;border:1px solid var(--line);border-bot
 body.viewer .view-only{display:inline-flex!important}
 body.viewer .side,body.viewer #designBtn,body.viewer .design-only,body.viewer #thumbBtn,body.viewer .pv-close,body.viewer .pv-fab,body.viewer .thumbs{display:none!important}
 body.viewer .app{grid-template-columns:1fr}
+body.viewer .pages{justify-content:center}
 body.viewer .stage{position:static!important;visibility:visible!important;transform:none!important}
 body.viewer .page .w{cursor:default}
 .lockbadge{align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--muted)}
@@ -1005,7 +1006,10 @@ function rerenderWidget(s=sel){
 }
 function fit(){
   const pcs=getComputedStyle($('pages')), avail=$('pages').clientWidth-parseFloat(pcs.paddingLeft)-parseFloat(pcs.paddingRight);
-  scale=zoom==='fit'?Math.max(.2,avail/PAGE_W):+zoom;
+  let s=zoom==='fit'?avail/PAGE_W:+zoom;
+  /* 보기 전용(PC)은 왼쪽 패널이 없어서 폭에만 맞추면 너무 커짐: 한 면이 화면 높이에 다 들어오게 줄임(면 이름 줄 약 40px 포함) */
+  if(zoom==='fit'&&viewOnly&&matchMedia('(min-width:861px)').matches) s=Math.min(s,($('pages').clientHeight-parseFloat(pcs.paddingTop)-40)/PAGE_H);
+  scale=zoom==='fit'?Math.max(.2,s):s;
   document.querySelectorAll('.tscaler').forEach(s=>{
     const p=s.firstElementChild, W=+p.dataset.w, H=+p.dataset.h, k=Math.max(140,Math.min(avail/2-8,520))/W;
     s.style.width=W*k+'px'; s.style.height=H*k+'px'; p.style.transform=`scale(${k})`;

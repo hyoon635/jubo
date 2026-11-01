@@ -553,7 +553,7 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
     <b>편집하려면 비밀번호를 넣어 주세요</b>
     <label>비밀번호 <input id="lockPass" type="password" autocomplete="current-password" required></label>
     <p class="hint" id="lockNote" style="margin:0">구글 시트 저장에 쓰는 비밀번호예요. 이 기기에 기억돼서 다음부터는 묻지 않아요.</p>
-    <div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="lockCancel">취소</button><button type="submit" class="btn primary" id="lockOk">확인</button></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="lockCancel">보기만 할게요</button><button type="submit" class="btn primary" id="lockOk">확인</button></div>
   </form>
 </div>
 <div id="thumbView" hidden role="dialog" aria-label="썸네일 크게 보기">
@@ -2233,9 +2233,11 @@ async function enterViewer(note){
     status(note||'');
   }catch(e){ status(note||'최신 주보를 불러오지 못해서 이 기기에 있던 내용을 보여 줘요.'); }
 }
-const openLock=()=>{ $('lockBox').hidden=false; $('lockNote').classList.remove('warn'); $('lockPass').value=''; setTimeout(()=>$('lockPass').focus(),0); };
+const LOCK_NOTE=$('lockNote').textContent;
+const openLock=()=>{ $('lockBox').hidden=false; $('lockNote').classList.remove('warn'); $('lockNote').textContent=LOCK_NOTE; $('lockPass').value=''; setTimeout(()=>$('lockPass').focus(),0); };
 $('unlockBtn').onclick=openLock;
-$('lockCancel').onclick=()=>{ $('lockBox').hidden=true; };
+/* "보기만 할게요"를 누르면 이 창(탭)에서는 다시 묻지 않음 */
+$('lockCancel').onclick=()=>{ $('lockBox').hidden=true; try{ sessionStorage.setItem(KEY+'-viewonly','1'); }catch(e){} };
 $('lockBox').addEventListener('keydown',e=>{ if(e.key==='Escape') $('lockBox').hidden=true; });
 $('lockForm').onsubmit=async e=>{
   e.preventDefault();
@@ -2244,9 +2246,10 @@ $('lockForm').onsubmit=async e=>{
   try{ await gsCall('ping'); gsSaveCfg(); location.reload(); }
   catch(err){ gs.pass=''; note.classList.add('warn'); note.textContent=err.message; ok.disabled=false; }
 };
-if(!store()) enterViewer();
+/* 보기 전용으로 열리면 비밀번호 창을 바로 띄움 */
+if(!store()){ enterViewer(); let asked=false; try{ asked=!!sessionStorage.getItem(KEY+'-viewonly'); }catch(e){} if(!asked) openLock(); }
 /* 저장된 비밀번호가 바뀌었으면 잠금. 인터넷이 안 될 때는 그대로 편집할 수 있게 둠 */
-else if(STORES.sheet.on()) gsCall('ping').catch(e=>{ if(/비밀번호/.test(e.message)){ gs.pass=''; gsSaveCfg(); enterViewer('비밀번호가 바뀌었어요. 편집하려면 "편집하기"를 눌러 다시 넣어 주세요.'); } });
+else if(STORES.sheet.on()) gsCall('ping').catch(e=>{ if(/비밀번호/.test(e.message)){ gs.pass=''; gsSaveCfg(); enterViewer('비밀번호가 바뀌었어요. 편집하려면 "편집하기"를 눌러 다시 넣어 주세요.'); openLock(); } });
 </script>
 </body>
 </html>

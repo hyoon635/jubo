@@ -234,6 +234,8 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
 .tpage{position:absolute;top:0;left:0;transform-origin:0 0;overflow:hidden;box-shadow:0 2px 14px rgba(80,30,60,.14);color-scheme:light}
 .tpage *{box-sizing:border-box}
 .tpage .fitline{position:absolute;left:0;right:0;text-align:center;white-space:nowrap;line-height:1.15}
+/* 제목(.tt)은 top을 글자 가운데 높이로 둠: 여러 줄이 되거나 글자가 줄어도 위아래 가운데에 남음. .1em은 글꼴 상자와 실제 글자 가운데의 차이.
+   --maxh는 여러 줄일 때 제목이 차지할 수 있는 높이(위아래 글씨와 겹치지 않게) */
 /* 썸네일도 주보 색: 남색 + 분홍→보라→파랑 그라데이션. 글꼴은 빗썸고딕(없는 글자는 프리텐다드) */
 .tpage .gtx>span,.tpage .gtx:not(:has(span)){background:linear-gradient(100deg,#ff9bb1 0%,#dc9be3 50%,#86b6ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;padding:0 .14em 0 .06em}
 .tc .gtx>span,.tc .gtx:not(:has(span)){background-image:linear-gradient(100deg,#ff829b 0%,#d47fc8 50%,#5199f5 100%)}
@@ -242,7 +244,7 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
 .tc .shadow{position:absolute;left:114px;top:98px;width:1702px;height:899px;background:linear-gradient(100deg,#ff829b 0%,#d47fc8 50%,#5199f5 100%);border-radius:28px}
 .tc .card{position:absolute;left:104px;top:88px;width:1702px;height:899px;background:#fff;border:2px solid #183d78;border-radius:28px}
 .tc .dt{top:168px;font-weight:700;font-size:50px;color:#183d78}
-.tc .tt{top:405px;font-weight:900;font-size:150px;letter-spacing:-.045em;padding:0 120px}
+.tc .tt{--maxh:440px;top:476px;transform:translateY(calc(-50% + .1em));font-weight:900;font-size:150px;letter-spacing:-.045em;padding:0 120px}
 .tc .ch{top:772px;font-weight:800;font-size:80px;color:#183d78}
 .tc .cc{top:880px;font-weight:600;font-size:46px;color:#5a6478}
 .tc .clip{position:absolute;left:1650px;top:24px;width:120px;height:124px}
@@ -252,9 +254,11 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
 .tw .rib{position:absolute;left:85px;top:62px;width:214px;text-align:center;color:#fff;font-size:36px;line-height:1.2;letter-spacing:0}
 .tw .c1{top:290px;font-size:36px;color:#e486a8;letter-spacing:-.01em}
 .tw .c2{top:342px;font-size:50px;color:#183d78;letter-spacing:-.01em}
-.tw .tt{top:452px;font-size:156px;letter-spacing:-.045em;padding:0 420px}
+.tw .tt{--maxh:224px;top:519px;transform:translateY(calc(-50% + .1em));font-size:156px;letter-spacing:-.045em;padding:0 420px}
 .tw .ps{top:650px;font-size:50px;color:#5a6478}
 .tw .pr{position:absolute;left:50%;top:776px;height:72px;transform:translateX(-50%);background:linear-gradient(90deg,#f48fb1 0%,#d29be0 50%,#5fa9f2 100%);color:#fff;font-size:42px;line-height:72px;padding:0 70px;border-radius:36px;white-space:nowrap}
+/* 제목이 여러 줄이면(.multi) 윗줄은 조금 올리고 본문·설교자·아래 장식선은 내려서 제목 위아래를 띄움 */
+.tw.multi .c1{top:280px}.tw.multi .c2{top:332px}.tw.multi .tt{top:529px}.tw.multi .ps{top:680px}.tw.multi .pr{top:811px}.tw.multi .bl{transform:translateY(35px)}
 @media print{.thumbs{display:none!important}}
 .tscaler .tpage{cursor:zoom-in}
 /* 썸네일 크게 보기: 버튼·휠·두 손가락으로 확대/축소, 끌어서 이동 */
@@ -889,7 +893,7 @@ function thumbsHTML(){
     <line x1="127" y1="164" x2="258" y2="164" stroke="#fff" stroke-width="3"/>${spark(193,205,19,'#fff')}
     <rect x="953" y="152" width="14" height="104" rx="3" fill="url(#twCross)"/><rect x="931" y="183" width="58" height="13" rx="3" fill="url(#twCross)"/>
     ${ray(960,116,960,132,'#c7b1ee')}${ray(892,142,904,155,'#f3a3bf')}${ray(1028,142,1016,155,'#8fb8f5')}${ray(860,194,878,198,'#f3a3bf')}${ray(1042,198,1060,194,'#8fb8f5')}${ray(889,243,875,249,'#f6c4d4')}${ray(1031,243,1045,249,'#f6c4d4')}    ${spark(356,640,48,'url(#twPink)')}${spark(1576,396,52,'#b6a9f0')}
-    <line x1="755" y1="901" x2="918" y2="901" stroke="url(#twLine)" stroke-width="2.5"/><line x1="1002" y1="901" x2="1165" y2="901" stroke="url(#twLine)" stroke-width="2.5"/>${spark(960,901,26,'url(#twLine)')}
+    <g class="bl"><line x1="755" y1="901" x2="918" y2="901" stroke="url(#twLine)" stroke-width="2.5"/><line x1="1002" y1="901" x2="1165" y2="901" stroke="url(#twLine)" stroke-width="2.5"/>${spark(960,901,26,'url(#twLine)')}</g>
   </svg>`;
   return `<section class="thumbs"><div class="plabel">썸네일 <span>예배 영상 1920×1080 · 찬양대 1920×1080</span></div>
   <div style="display:flex;gap:16px;flex-wrap:wrap">
@@ -910,14 +914,43 @@ function thumbsHTML(){
     </div></div>
   </div></section>`;
 }
-/* 제목이 길면 한 줄에 들어가게 글자 크기를 줄임 */
+/* 제목이 길면 띄어쓰기 자리에서 2~3줄로 나눔. 줄 길이가 비슷하고 글자가 가장 크게 남는 자리를 고르고,
+   쉼표 등 문장부호 뒤에서 끊는 쪽을 조금 더 쳐줌. 그래도 넘치면(띄어쓰기 없는 긴 제목 등) 글자를 줄임.
+   줄마다 span을 따로 둬서 그라데이션도 줄마다 처음부터 칠해짐 */
 function fitThumbText(){
   document.querySelectorAll('.tpage [data-fit]').forEach(el=>{
+    const text=el.dataset.text??(el.dataset.text=el.textContent.trim());
+    el.style.fontSize=''; el.style.lineHeight='';
     /* span을 먼저 넣어야 함: span이 없을 땐 .gtx:not(:has(span)) 규칙이 좌우 여백을 덮어써서 남는 폭을 잘못 잼 */
-    el.style.fontSize=''; const inner=document.createElement('span'); inner.textContent=el.textContent; el.textContent=''; el.appendChild(inner);
+    const probe=document.createElement('span'); el.replaceChildren(probe);
+    const width=s=>{ probe.textContent=s; return probe.offsetWidth; };
     const cs=getComputedStyle(el), base=parseFloat(cs.fontSize);
     const avail=el.parentElement.offsetWidth-parseFloat(cs.paddingLeft)*2;
-    const w=inner.offsetWidth; if(w>avail) el.style.fontSize=Math.max(20,base*avail/w)+'px';
+    const maxH=parseFloat(cs.getPropertyValue('--maxh'))||Infinity, LH=1.08;
+    const show=(lines,fs)=>{
+      el.replaceChildren(...lines.flatMap((s,i)=>{ const sp=document.createElement('span'); sp.textContent=s; return i?[document.createElement('br'),sp]:[sp]; }));
+      if(fs<base) el.style.fontSize=Math.max(20,fs)+'px';
+      if(lines.length>1) el.style.lineHeight=LH;
+      el.closest('.tpage').classList.toggle('multi',lines.length>1);
+    };
+    const one=width(text), words=text.split(/\s+/);
+    if(one<=avail) return show([text],base);
+    if(words.length<2) return show([text],base*avail/one);
+    const cands=[];
+    for(let i=1;i<words.length;i++){
+      cands.push([words.slice(0,i),words.slice(i)]);
+      for(let j=i+1;j<words.length;j++) cands.push([words.slice(0,i),words.slice(i,j),words.slice(j)]);
+    }
+    let best=null;
+    cands.forEach(c=>{
+      const lines=c.map(w=>w.join(' ')), w=Math.max(...lines.map(width));
+      const fs=Math.min(base,base*avail/w,maxH/(lines.length*LH));
+      const punct=lines.slice(0,-1).every(s=>/[,，·:!?…]$/.test(s));
+      /* 글자 크기가 같으면(높이에 막힌 경우) 가장 긴 줄이 짧은 쪽, 즉 줄 길이가 고른 쪽 */
+      const score=fs*(lines.length===2?1:.97)*(punct?1.04:1)-w/avail;
+      if(!best||score>best.score) best={lines,fs,score};
+    });
+    show(best.lines,best.fs);
   });
 }
 document.fonts&&document.fonts.addEventListener&&document.fonts.addEventListener('loadingdone',()=>fitThumbText());

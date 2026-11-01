@@ -33,6 +33,10 @@ function doGet() {
 function doPost(e) {
   let req;
   try { req = JSON.parse(e.postData.contents); } catch (err) { return out({ error: '요청 형식이 잘못됐어요.' }); }
+  /* 보기 전용: 비밀번호 없이 지금 주보를 읽기만 함(주보 페이지가 비밀번호 없는 기기에서 인쇄용 미리보기를 보여 줄 때) */
+  if (req.action === 'view') {
+    try { return out({ ok: true, state: readState() }); } catch (err) { return out({ error: String(err && err.message || err) }); }
+  }
   if (!PASSWORD || PASSWORD === '여기에-비밀번호') return out({ error: 'Apps Script 코드 맨 위의 PASSWORD를 먼저 바꾸고 다시 배포해 주세요.' });
   if (req.pass !== PASSWORD) return out({ error: '비밀번호가 맞지 않아요.' });
   const lock = LockService.getScriptLock();

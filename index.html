@@ -284,11 +284,11 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
 .tw .rib{position:absolute;left:85px;top:62px;width:214px;text-align:center;color:#fff;font-size:36px;line-height:1.2;letter-spacing:0}
 .tw .c1{top:290px;font-size:36px;color:#e486a8;letter-spacing:-.01em}
 .tw .c2{top:342px;font-size:50px;color:#183d78;letter-spacing:-.01em}
-.tw .tt{--maxh:224px;top:519px;transform:translateY(calc(-50% + .1em));font-size:156px;letter-spacing:-.045em;padding:0 420px}
+.tw .tt{--maxh:340px;--padm:360px;top:519px;transform:translateY(calc(-50% + .1em));font-size:156px;letter-spacing:-.045em;padding:0 420px}
 .tw .ps{top:650px;font-size:50px;color:#5a6478}
 .tw .pr{position:absolute;left:50%;top:776px;height:72px;transform:translateX(-50%);background:linear-gradient(90deg,#f48fb1 0%,#d29be0 50%,#5fa9f2 100%);color:#fff;font-size:42px;line-height:72px;padding:0 70px;border-radius:36px;white-space:nowrap}
-/* 제목이 여러 줄이면(.multi) 윗줄은 조금 올리고 본문·설교자·아래 장식선은 내려서 제목 위아래를 띄움 */
-.tw.multi .c1{top:280px}.tw.multi .c2{top:332px}.tw.multi .tt{top:529px}.tw.multi .ps{top:680px}.tw.multi .pr{top:811px}.tw.multi .bl{transform:translateY(35px)}
+/* 제목이 여러 줄이면(.multi) 글자 크기(156px)는 그대로 두고, 십자가·윗줄은 올리고 본문·설교자·아래 장식선은 내려서 두 줄 자리(--maxh)를 만듦 */
+.tw.multi .cr{transform:translateY(-40px)}.tw.multi .c1{top:250px}.tw.multi .c2{top:300px}.tw.multi .tt{top:549px;padding:0 360px}.tw.multi .ps{top:750px}.tw.multi .pr{top:850px}.tw.multi .bl{transform:translateY(72px)}
 @media print{.thumbs{display:none!important}}
 .tscaler .tpage{cursor:zoom-in}
 /* 썸네일 크게 보기: 버튼·휠·두 손가락으로 확대/축소, 끌어서 이동 */
@@ -951,8 +951,8 @@ function thumbsHTML(){
     <path d="M85 0H299V287L192 248L85 287Z" fill="url(#twRib)"/>
     <path d="M93 0V275L192 239L291 275V0" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="5 5"/>
     <line x1="127" y1="164" x2="258" y2="164" stroke="#fff" stroke-width="3"/>${spark(193,205,19,'#fff')}
-    <rect x="953" y="152" width="14" height="104" rx="3" fill="url(#twCross)"/><rect x="931" y="183" width="58" height="13" rx="3" fill="url(#twCross)"/>
-    ${ray(960,116,960,132,'#c7b1ee')}${ray(892,142,904,155,'#f3a3bf')}${ray(1028,142,1016,155,'#8fb8f5')}${ray(860,194,878,198,'#f3a3bf')}${ray(1042,198,1060,194,'#8fb8f5')}${ray(889,243,875,249,'#f6c4d4')}${ray(1031,243,1045,249,'#f6c4d4')}    ${spark(356,640,48,'url(#twPink)')}${spark(1576,396,52,'#b6a9f0')}
+    <g class="cr"><rect x="953" y="152" width="14" height="104" rx="3" fill="url(#twCross)"/><rect x="931" y="183" width="58" height="13" rx="3" fill="url(#twCross)"/>
+    ${ray(960,116,960,132,'#c7b1ee')}${ray(892,142,904,155,'#f3a3bf')}${ray(1028,142,1016,155,'#8fb8f5')}${ray(860,194,878,198,'#f3a3bf')}${ray(1042,198,1060,194,'#8fb8f5')}${ray(889,243,875,249,'#f6c4d4')}${ray(1031,243,1045,249,'#f6c4d4')}</g>    ${spark(356,640,48,'url(#twPink)')}${spark(1576,396,52,'#b6a9f0')}
     <g class="bl"><line x1="755" y1="901" x2="918" y2="901" stroke="url(#twLine)" stroke-width="2.5"/><line x1="1002" y1="901" x2="1165" y2="901" stroke="url(#twLine)" stroke-width="2.5"/>${spark(960,901,26,'url(#twLine)')}</g>
   </svg>`;
   return `<section class="thumbs"><div class="plabel">썸네일 <span>예배 영상 1920×1080 · 찬양대 1920×1080</span></div>
@@ -979,13 +979,17 @@ function thumbsHTML(){
    줄마다 span을 따로 둬서 그라데이션도 줄마다 처음부터 칠해짐 */
 function fitThumbText(){
   document.querySelectorAll('.tpage [data-fit]').forEach(el=>{
+    if(!el.parentElement.offsetWidth) return; /* 숨겨진 썸네일(보기 전용)은 잴 수 없음 */
     const text=el.dataset.text??(el.dataset.text=el.textContent.trim());
     el.style.fontSize=''; el.style.lineHeight='';
     /* span을 먼저 넣어야 함: span이 없을 땐 .gtx:not(:has(span)) 규칙이 좌우 여백을 덮어써서 남는 폭을 잘못 잼 */
     const probe=document.createElement('span'); el.replaceChildren(probe);
     const width=s=>{ probe.textContent=s; return probe.offsetWidth; };
+    el.closest('.tpage').classList.remove('multi'); /* 한 줄일 때 여백으로 잼 */
     const cs=getComputedStyle(el), base=parseFloat(cs.fontSize);
-    const avail=el.parentElement.offsetWidth-parseFloat(cs.paddingLeft)*2;
+    const avail1=el.parentElement.offsetWidth-parseFloat(cs.paddingLeft)*2;
+    /* 여러 줄일 땐 좌우 여백을 --padm으로 좁혀 글자 크기를 지킴 */
+    const availN=el.parentElement.offsetWidth-2*(parseFloat(cs.getPropertyValue('--padm'))||parseFloat(cs.paddingLeft));
     const maxH=parseFloat(cs.getPropertyValue('--maxh'))||Infinity, LH=1.08;
     const show=(lines,fs)=>{
       el.replaceChildren(...lines.flatMap((s,i)=>{ const sp=document.createElement('span'); sp.textContent=s; return i?[document.createElement('br'),sp]:[sp]; }));
@@ -996,11 +1000,11 @@ function fitThumbText(){
     /* 직접 줄을 바꿔 쓴 제목은 그 줄대로. 넓거나 높으면 글자만 줄임 */
     if(text.includes('\n')){
       const lines=text.split('\n').map(s=>s.trim()).filter(Boolean), w=Math.max(...lines.map(width));
-      return show(lines,Math.min(base,base*avail/w,lines.length>1?maxH/(lines.length*LH):Infinity));
+      return show(lines,lines.length>1?Math.min(base,base*availN/w,maxH/(lines.length*LH)):Math.min(base,base*avail1/w));
     }
-    const one=width(text), words=text.split(/\s+/);
-    if(one<=avail) return show([text],base);
-    if(words.length<2) return show([text],base*avail/one);
+    const one=width(text), words=text.split(/\s+/), avail=availN;
+    if(one<=avail1) return show([text],base);
+    if(words.length<2) return show([text],base*avail1/one);
     const cands=[];
     for(let i=1;i<words.length;i++){
       cands.push([words.slice(0,i),words.slice(i)]);

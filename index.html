@@ -66,7 +66,7 @@ html,body{margin:0}
 body{background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:14px;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
 
 /* ───────── 편집기 UI ───────── */
-.app{display:grid;grid-template-columns:minmax(340px,400px) 1fr;height:100vh}
+.app{display:grid;grid-template-columns:minmax(340px,400px) 1fr;height:100vh;height:100dvh}
 .side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .side-head{padding:20px 20px 0}
 .side h1{font-family:var(--ui);font-weight:800;font-size:20px;margin:0 0 14px;letter-spacing:-.03em}
@@ -177,7 +177,9 @@ body.viewer .page .w{cursor:default}
 
 /* ───────── 주보 페이지 (A4 가로 1123×794px = 297×210mm) ───────── */
 .page{--inv:1;width:1123px;height:794px;background:#fff;color:var(--ink);font-family:var(--f-body),var(--body);font-weight:var(--w-body,400);overflow:hidden;position:relative;color-scheme:light;user-select:none;-webkit-user-select:none}
-.w{position:absolute;touch-action:none}
+.w{position:absolute}
+/* 디자인 편집 중에만 위젯이 터치를 가져감. 평소에도 막으면 주보 위에서 스크롤·핀치 확대가 안 됨 */
+body.design .w{touch-action:none}
 .page:not(.exporting) .w{cursor:move}
 .page:not(.exporting) .w:hover{outline:calc(1px * var(--inv)) dashed rgba(47,123,255,.55)}
 .page:not(.exporting) .w.over{outline:calc(1.5px * var(--inv)) dashed #f97316}
@@ -290,22 +292,60 @@ body:not(.design) .page:not(.exporting) .w:hover{outline:none}
 /* 제목이 여러 줄이면(.multi) 글자 크기(156px)는 그대로 두고, 십자가·윗줄은 올리고 본문·설교자·아래 장식선은 내려서 두 줄 자리(--maxh)를 만듦 */
 .tw.multi .cr{transform:translateY(-40px)}.tw.multi .c1{top:250px}.tw.multi .c2{top:300px}.tw.multi .tt{top:549px;padding:0 360px}.tw.multi .ps{top:750px}.tw.multi .pr{top:850px}.tw.multi .bl{transform:translateY(72px)}
 @media print{.thumbs{display:none!important}}
-.tscaler .tpage{cursor:zoom-in}
-/* 썸네일 크게 보기: 버튼·휠·두 손가락으로 확대/축소, 끌어서 이동 */
+.tscaler .tpage,body:not(.design) .scaler>.page,.savegrid img{cursor:zoom-in}
+/* 크게 보기(주보·썸네일·저장 창 사진): 버튼·휠·두 손가락으로 확대/축소, 끌어서 이동 */
 #thumbView{position:fixed;inset:0;z-index:100;background:rgba(20,12,20,.85);display:flex;flex-direction:column}
-.tbbar{display:flex;gap:6px;align-items:center;justify-content:center;padding:10px 16px;flex-wrap:wrap}
+.tbbar{display:flex;gap:6px;align-items:center;justify-content:center;padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top));flex-wrap:wrap}
 #tbPct{min-width:52px;text-align:center;color:#fff;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
 #tbClose{margin-left:12px}
-#tbView{flex:1;min-height:0;overflow:auto;display:flex;padding:16px;cursor:grab;touch-action:pan-x pan-y}
+#tbView{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));cursor:grab;touch-action:none}
 #tbView.drag{cursor:grabbing}
 #tbStage{margin:auto;position:relative;flex:none}
-#tbStage .tpage{cursor:inherit}
+#tbStage .tpage,#tbStage .page,#tbStage img{cursor:inherit}
+#tbStage>.page,#tbStage>img{position:absolute;top:0;left:0;transform-origin:0 0;max-width:none}
 
-#saveBox{position:fixed;inset:0;z-index:100;background:rgba(30,15,25,.45);display:grid;place-items:center;padding:16px}
-.savecard{background:var(--panel);color:var(--fg);border-radius:16px;padding:20px;display:grid;gap:12px;width:min(720px,100%);box-shadow:0 12px 40px rgba(0,0,0,.25)}
+#saveBox{position:fixed;inset:0;z-index:100;background:rgba(30,15,25,.45);display:grid;overflow:auto;overscroll-behavior:contain;padding:16px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom))}
+.savecard{background:var(--panel);color:var(--fg);border-radius:16px;padding:20px;display:grid;gap:12px;width:min(720px,100%);margin:auto;box-shadow:0 12px 40px rgba(0,0,0,.25)}
 .savegrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .savegrid>div{display:grid;gap:6px;min-width:0}
 .savegrid img{width:100%;border:1px solid var(--line);border-radius:6px;background:#fff}
+@media (max-width:560px){
+  .savegrid{grid-template-columns:1fr}
+  .row3{grid-template-columns:1fr 1fr}
+  /* 예배 순서: 칸이 좁아 글자가 잘리므로 내용 칸을 아랫줄 전체로 */
+  #order{gap:10px}
+  #order .orow{grid-template-columns:1fr 1fr 32px}
+  #order .orow>:nth-child(1){grid-area:1/1}
+  #order .orow>:nth-child(2){grid-area:2/1/auto/-1}
+  #order .orow>:nth-child(3){grid-area:1/2}
+  #order .orow>:nth-child(4){grid-area:1/3}
+}
+@media (max-width:860px){
+  .pages{overscroll-behavior:contain;padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+  .side-head,.side-body,.toolbar,.pages{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+}
+/* 터치 기기: 16px보다 작은 입력칸은 아이폰이 누를 때마다 화면을 확대해 버림. 버튼은 손가락 크기로 */
+@media (pointer:coarse){
+  input:not([type=checkbox]),textarea:not(.editbox),select,.orow input,.toolbar select,.paste,#panelShare textarea{font-size:16px}
+  .orow input{padding:7px 6px}
+  input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-height:41px}
+  input[type=date]::-webkit-date-and-time-value{text-align:left}
+  input[type=checkbox]{width:20px;height:20px}
+  button,summary,select,a,label{touch-action:manipulation}
+  .btn{min-height:40px}
+  .tab{min-height:38px}
+  .chip{min-height:34px}
+  .icon-btn{min-width:32px;min-height:36px}
+  .menu .pop button{padding:12px}
+  .hd{width:calc(24px * var(--inv));height:calc(24px * var(--inv))}
+}
+/* 터치하면 hover 색이 눌린 채로 남는 것 방지 */
+@media (hover:none){
+  .btn:not(.primary):not(.on):hover{background:var(--panel)}
+  .chip:hover{border-color:var(--line);color:var(--fg)}
+  .icon-btn:hover{background:transparent;color:var(--muted)}
+  input:hover,textarea:hover,select:hover{background:var(--field)}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -577,6 +617,9 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 let uidN=0; const nid=()=>'w'+Date.now().toString(36)+(uidN++).toString(36);
 const lines=t=>String(t||'').split('\n').map(s=>s.trim()).filter(Boolean);
 const status=m=>{$('status').textContent=m;};
+const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isInApp=/KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i.test(navigator.userAgent);
+const isMobile=()=>isIOS||matchMedia('(pointer:coarse)').matches;
 
 function nextSunday(){ const d=new Date(); d.setDate(d.getDate()+((7-d.getDay())%7)); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 
@@ -1046,26 +1089,33 @@ function fit(){
 new ResizeObserver(()=>fit()).observe($('pages'));
 $('zoom').onchange=()=>{ zoom=$('zoom').value; try{localStorage.setItem(KEY+'-zoom',zoom);}catch(e){} fit(); };
 
-/* ───────── 썸네일 크게 보기 ───────── */
+/* 위에 뜨는 창은 방문 기록에 한 칸씩 쌓아서 휴대폰 뒤로 가기로 닫히게 함. 어떤 창이 열려 있어야 하는지는 history.state에 담김 */
+const pushLayer=k=>{ try{ history.pushState({...history.state,[k]:1},''); }catch(e){} };
+const popLayer=k=>{ if(history.state&&history.state[k]){ try{ history.back(); }catch(e){} } };
+
+/* ───────── 크게 보기 (주보·썸네일·저장 창 사진) ───────── */
 let tb=null;
 function openThumb(src){
-  const c=src.cloneNode(true); c.removeAttribute('id'); $('tbStage').replaceChildren(c);
-  tb={el:c,W:+src.dataset.w,H:+src.dataset.h,k:1}; $('thumbView').hidden=false; tbZoom(tbFit());
+  const isImg=src.tagName==='IMG', W=isImg?src.naturalWidth:+src.dataset.w||PAGE_W, H=isImg?src.naturalHeight:+src.dataset.h||PAGE_H;
+  const c=src.cloneNode(true); c.removeAttribute('id'); c.removeAttribute('data-page'); $('tbStage').replaceChildren(c);
+  if(isImg){ c.style.width=W+'px'; c.style.height=H+'px'; }
+  tb={el:c,W,H,k:1}; $('thumbView').hidden=false; tbZoom(tbFit()); pushLayer('viewer');
 }
-const closeThumb=()=>{ $('thumbView').hidden=true; $('tbStage').replaceChildren(); tb=null; };
+const closeThumb=fromPop=>{ if(!tb) return; $('thumbView').hidden=true; $('tbStage').replaceChildren(); tb=null; if(!fromPop) popLayer('viewer'); };
 const tbFit=()=>{ const v=$('tbView'); return Math.min((v.clientWidth-32)/tb.W,(v.clientHeight-32)/tb.H); };
+addEventListener('orientationchange',()=>setTimeout(()=>{ if(tb) tbZoom(tbFit()); },300));
 /* 확대/축소해도 (cx,cy) 아래 지점이 그대로 있게 스크롤을 맞춤 */
 function tbZoom(k,cx,cy){
   const v=$('tbView'), st=$('tbStage'), vr=v.getBoundingClientRect();
-  k=Math.min(3,Math.max(.05,k)); if(cx==null){ cx=v.clientWidth/2; cy=v.clientHeight/2; }
+  k=Math.min(3,6000/tb.W,Math.max(.05,k)); if(cx==null){ cx=v.clientWidth/2; cy=v.clientHeight/2; }
   const r=st.getBoundingClientRect(), px=(vr.left+cx-r.left)/tb.k, py=(vr.top+cy-r.top)/tb.k;
   tb.k=k; st.style.width=tb.W*k+'px'; st.style.height=tb.H*k+'px'; tb.el.style.transform=`scale(${k})`;
   const r2=st.getBoundingClientRect(); v.scrollLeft+=r2.left+px*k-(vr.left+cx); v.scrollTop+=r2.top+py*k-(vr.top+cy);
   $('tbPct').textContent=Math.round(k*100)+'%';
 }
-$('pages').addEventListener('click',e=>{ const t=e.target.closest('.tscaler .tpage'); if(t) openThumb(t); });
+$('pages').addEventListener('click',e=>{ const t=e.target.closest('.tscaler .tpage')||(!designMode&&e.target.closest('.scaler>.page')); if(t) openThumb(t); });
 $('tbIn').onclick=()=>tbZoom(tb.k*1.25); $('tbOut').onclick=()=>tbZoom(tb.k/1.25);
-$('tbFitBtn').onclick=()=>tbZoom(tbFit()); $('tbClose').onclick=closeThumb;
+$('tbFitBtn').onclick=()=>tbZoom(tbFit()); $('tbClose').onclick=()=>closeThumb();
 {
   const v=$('tbView'); let drag=null, pinch=null;
   const at=(x,y)=>{ const r=v.getBoundingClientRect(); return [x-r.left,y-r.top]; };
@@ -1074,13 +1124,36 @@ $('tbFitBtn').onclick=()=>tbZoom(tbFit()); $('tbClose').onclick=closeThumb;
   v.addEventListener('pointermove',e=>{ if(!drag) return; const dx=e.clientX-drag.x, dy=e.clientY-drag.y; if(Math.abs(dx)+Math.abs(dy)>4) drag.moved=true; v.scrollLeft=drag.sl-dx; v.scrollTop=drag.st-dy; });
   const end=e=>{ if(!drag) return; const d=drag; drag=null; v.classList.remove('drag'); if(!d.moved&&d.bg&&e.type==='pointerup') closeThumb(); };
   v.addEventListener('pointerup',end); v.addEventListener('pointercancel',end);
+  /* 터치는 브라우저에 맡기지 않고(touch-action:none) 한 손가락 이동·두 손가락 확대·두 번 탭 확대를 직접 처리: 스크롤과 핀치가 서로 끊기지 않게 */
   const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
-  v.addEventListener('touchstart',e=>{ if(e.touches.length===2) pinch={d:dist(e.touches),k:tb.k}; },{passive:true});
-  v.addEventListener('touchmove',e=>{ if(!pinch||e.touches.length!==2) return; e.preventDefault(); const t=e.touches; tbZoom(pinch.k*dist(t)/pinch.d,...at((t[0].clientX+t[1].clientX)/2,(t[0].clientY+t[1].clientY)/2)); },{passive:false});
-  v.addEventListener('touchend',e=>{ if(e.touches.length<2) pinch=null; });
+  const mid=t=>at((t[0].clientX+t[1].clientX)/2,(t[0].clientY+t[1].clientY)/2);
+  let pan=null, lastTap=0;
+  v.addEventListener('touchstart',e=>{
+    e.preventDefault(); const t=e.touches;
+    if(t.length>=2){ pan=null; pinch={d:dist(t),k:tb.k,m:mid(t)}; }
+    else pan={x:t[0].clientX,y:t[0].clientY,moved:false,bg:e.target===v};
+  },{passive:false});
+  v.addEventListener('touchmove',e=>{
+    e.preventDefault(); const t=e.touches;
+    if(pinch&&t.length>=2){ const m=mid(t); tbZoom(pinch.k*dist(t)/pinch.d,...m); v.scrollLeft-=m[0]-pinch.m[0]; v.scrollTop-=m[1]-pinch.m[1]; pinch.m=m; }
+    else if(pan&&t.length===1){ const dx=t[0].clientX-pan.x, dy=t[0].clientY-pan.y; if(!pan.moved&&Math.abs(dx)+Math.abs(dy)<6) return; pan.moved=true; v.scrollLeft-=dx; v.scrollTop-=dy; pan.x=t[0].clientX; pan.y=t[0].clientY; }
+  },{passive:false});
+  const touchEnd=e=>{
+    const t=e.touches;
+    if(t.length<2) pinch=null;
+    if(t.length===1){ pan={x:t[0].clientX,y:t[0].clientY,moved:true,bg:false}; return; }
+    if(t.length||!pan) return;
+    const p=pan, c=e.changedTouches[0]; pan=null;
+    if(p.moved||e.type!=='touchend') return;
+    if(p.bg) return closeThumb();
+    const now=performance.now();
+    if(now-lastTap<300){ lastTap=0; const f=tbFit(); tbZoom(tb.k>f*1.2?f:f*2.5,...at(c.clientX,c.clientY)); }
+    else lastTap=now;
+  };
+  v.addEventListener('touchend',touchEnd); v.addEventListener('touchcancel',touchEnd);
   document.addEventListener('keydown',e=>{
     if($('thumbView').hidden) return;
-    const act={Escape:closeThumb,'+':()=>tbZoom(tb.k*1.25),'=':()=>tbZoom(tb.k*1.25),'-':()=>tbZoom(tb.k/1.25),'0':()=>tbZoom(tbFit())}[e.key];
+    const act={Escape:()=>closeThumb(),'+':()=>tbZoom(tb.k*1.25),'=':()=>tbZoom(tb.k*1.25),'-':()=>tbZoom(tb.k/1.25),'0':()=>tbZoom(tbFit())}[e.key];
     if(act){ e.preventDefault(); e.stopImmediatePropagation(); act(); }
   },true);
 }
@@ -1646,10 +1719,12 @@ function fillWeekPanel(){ SHARE_FIELDS.forEach(k=>{ const el=$(k); if(el) el.val
 
 /* ───────── 레이아웃 파일 ───────── */
 function download(url,name){ const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+/* 주소를 바로 지우면 아이폰에서 "다운로드할까요?"에 답하는 사이 파일이 사라짐 */
+function saveBlob(blob,name){ const url=URL.createObjectURL(blob); download(url,name); setTimeout(()=>URL.revokeObjectURL(url),60000); }
 document.querySelectorAll('.menu .pop button').forEach(b=>b.addEventListener('click',()=>b.closest('details').open=false));
 $('layoutSave').onclick=()=>{
   const blob=new Blob([JSON.stringify({app:'jungdeungbu-bulletin',version:3,state,fonts:customFonts},null,1)],{type:'application/json'});
-  const url=URL.createObjectURL(blob); download(url,`중등부_주보_${state.date.replace(/-/g,'').slice(2)}.json`); setTimeout(()=>URL.revokeObjectURL(url),2000);
+  saveBlob(blob,`중등부_주보_${state.date.replace(/-/g,'').slice(2)}.json`);
   status('주보 파일을 저장했어요. 다른 기기에서 "파일 가져오기"로 불러올 수 있어요.');
 };
 $('layoutLoad').onclick=()=>{ $('jsonFile').value=''; $('jsonFile').click(); };
@@ -1676,9 +1751,12 @@ async function toPng(page,W=PAGE_W,H=PAGE_H,ratio=2.5){
   if(fontCSS===null){ status('글꼴을 담는 중…'); try{ fontCSS=await buildFontCSS(); }catch(e){ console.warn(e); try{ fontCSS=await htmlToImage.getFontEmbedCSS(page); }catch(e2){ fontCSS=''; } } }
   page.classList.add('exporting');
   try{
-    return await htmlToImage.toPng(page,{pixelRatio:ratio,width:W,height:H,backgroundColor:getComputedStyle(page).backgroundColor||'#ffffff',fontEmbedCSS:fontCSS,
+    const opts={pixelRatio:ratio,width:W,height:H,backgroundColor:getComputedStyle(page).backgroundColor||'#ffffff',fontEmbedCSS:fontCSS,
       style:{transform:'none',position:'static',boxShadow:'none'},
-      filter:n=>!(n.classList&&(n.classList.contains('sel')||n.classList.contains('guide')||n.classList.contains('editbox')))});
+      filter:n=>!(n.classList&&(n.classList.contains('sel')||n.classList.contains('guide')||n.classList.contains('editbox')))};
+    /* 사파리는 첫 번째 그림에서 글꼴·이미지가 빠지는 일이 있어서 한 번 버리고 다시 그림 */
+    if(isIOS) await htmlToImage.toPng(page,opts);
+    return await htmlToImage.toPng(page,opts);
   }finally{ page.classList.remove('exporting'); }
 }
 const fileBase=()=>`중등부_주보_${(state.date||'').replace(/-/g,'').slice(2)}`;
@@ -1692,39 +1770,57 @@ async function busy(fn){
 }
 /* 브라우저가 한 번에 여러 파일 내려받기를 막기 때문에, 만든 뒤 한 장씩 눌러 저장 */
 $('pngBtn').onclick=()=>busy(async()=>{
-  const imgs=[];
-  for(let i=0;i<state.layout.pages.length;i++){ status(`${state.layout.pages[i].name} 이미지 만드는 중…`); imgs.push(await toPng(pageEl(i))); }
+  const items=[];
+  for(let i=0;i<state.layout.pages.length;i++){ const name=state.layout.pages[i].name; status(`${name} 이미지 만드는 중…`); items.push({label:name,url:await toPng(pageEl(i)),name:`${fileBase()}-${i+1}.png`}); }
   status('');
   syncSave(true);
-  const box=$('saveBox'); box.hidden=false;
-  box.innerHTML=`<div class="savecard" role="dialog" aria-label="이미지 저장">
-    <div style="display:flex;justify-content:space-between;align-items:center"><b>이미지 저장</b><button type="button" class="icon-btn" id="saveClose" aria-label="닫기">×</button></div>
-    <div class="savegrid">${imgs.map((u,i)=>`<div><img src="${u}" alt="${esc(state.layout.pages[i].name)} 미리보기"><button type="button" class="btn small" data-save="${i}">${esc(state.layout.pages[i].name)} 저장</button></div>`).join('')}</div>
-    <button type="button" class="btn primary small" id="saveBoth">두 면 ZIP으로 한 번에 저장</button></div>`;
-  box.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{ download(imgs[+b.dataset.save],`${fileBase()}-${+b.dataset.save+1}.png`); b.textContent='저장했어요 ✓'; });
-  $('saveClose').onclick=()=>{ box.hidden=true; box.innerHTML=''; };
-  $('saveBoth').onclick=async()=>{
-    const zip=new JSZip();
-    imgs.forEach((u,i)=>zip.file(`${fileBase()}-${i+1}.png`,u.split(',')[1],{base64:true}));
-    const url=URL.createObjectURL(await zip.generateAsync({type:'blob'}));
-    download(url,`${fileBase()}.zip`); setTimeout(()=>URL.revokeObjectURL(url),2000);
-    $('saveBoth').textContent='저장했어요 ✓';
-  };
+  showSaveDialog('이미지 저장',items,`${fileBase()}.zip`);
 });
+function dataToFile(url,name){
+  const [head,b64]=url.split(','), bin=atob(b64), bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return new File([bytes],name,{type:head.match(/:(.*?);/)[1]});
+}
+const canShareFiles=files=>isIOS&&!!navigator.canShare&&navigator.canShare({files});
+/* 아이폰은 내려받으면 '파일' 앱으로 가고 사진첩엔 안 들어가서, 공유 창의 "이미지 저장"으로 보냄. 공유는 누른 직후에만 되므로 await 없이 바로 부름.
+   안드로이드는 내려받은 사진이 갤러리의 Download 앨범에 나옴. 돌려주는 값: true 저장, false 사용자가 취소, null 길게 눌러 저장해야 함 */
+async function saveImages(items){
+  const files=items.map(it=>dataToFile(it.url,it.name));
+  if(canShareFiles(files)){
+    try{ await navigator.share({files}); return true; }
+    catch(e){ if(e.name==='AbortError') return false; console.warn(e); return null; }
+  }
+  if(isIOS||isInApp) return null;
+  for(let i=0;i<files.length;i++){ if(i) await new Promise(r=>setTimeout(r,500)); saveBlob(files[i],files[i].name); }
+  return true;
+}
+function saveHintHTML(){
+  if(!isMobile()) return '';
+  const open=isInApp&&/KAKAOTALK/i.test(navigator.userAgent)?` <a href="kakaotalk://web/openExternal?url=${encodeURIComponent(location.href)}">기본 브라우저로 열기</a>`:'';
+  const msg=isInApp?'이 앱 안에서는 바로 저장이 안 될 수 있어요. 사진을 길게 눌러 저장하거나 기본 브라우저로 열어 주세요.'
+    :isIOS?'저장을 누르고 공유 창에서 <b>이미지 저장</b>을 고르면 사진첩에 들어가요.'
+    :'저장한 사진은 갤러리의 Download 앨범에 있어요.';
+  return `<p class="hint" id="saveHint" style="margin:0">${msg}${open} 사진을 누르면 크게 볼 수 있어요.</p>`;
+}
+function closeSave(fromPop){ const box=$('saveBox'); if(box.hidden) return; box.hidden=true; box.innerHTML=''; if(!fromPop) popLayer('save'); }
 function showSaveDialog(title,items,zipName){
-  const box=$('saveBox'); box.hidden=false;
+  const box=$('saveBox'), mobile=isMobile(); box.hidden=false; pushLayer('save');
   box.innerHTML=`<div class="savecard" role="dialog" aria-label="${esc(title)}">
     <div style="display:flex;justify-content:space-between;align-items:center"><b>${esc(title)}</b><button type="button" class="icon-btn" id="saveClose" aria-label="닫기">×</button></div>
+    ${saveHintHTML()}
     <div class="savegrid">${items.map((it,i)=>`<div><img src="${it.url}" alt="${esc(it.label)} 미리보기"><button type="button" class="btn small" data-save="${i}">${esc(it.label)} 저장</button></div>`).join('')}</div>
-    ${zipName?`<button type="button" class="btn primary small" id="saveZip">ZIP으로 한 번에 저장</button>`:''}</div>`;
-  box.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{ const it=items[+b.dataset.save]; download(it.url,it.name); b.textContent='저장했어요 ✓'; });
-  $('saveClose').onclick=()=>{ box.hidden=true; box.innerHTML=''; };
-  if(zipName) $('saveZip').onclick=async()=>{
+    <button type="button" class="btn primary small" id="saveZip">${mobile?`${items.length}장 한 번에 저장`:'ZIP으로 한 번에 저장'}</button></div>`;
+  const report=(b,r)=>{ if(r) b.textContent='저장했어요 ✓'; else if(r===null&&$('saveHint')){ $('saveHint').classList.add('warn'); $('saveHint').textContent='여기서는 바로 저장할 수 없어요. 사진을 길게 눌러 "사진 앱에 저장"을 골라 주세요.'; } };
+  box.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{ const it=items[+b.dataset.save]; if(mobile) report(b,await saveImages([it])); else { saveBlob(dataToFile(it.url,it.name),it.name); report(b,true); } });
+  box.querySelectorAll('.savegrid img').forEach(i=>i.onclick=()=>openThumb(i));
+  $('saveClose').onclick=()=>closeSave();
+  $('saveZip').onclick=async()=>{
+    const b=$('saveZip');
+    if(mobile) return report(b,await saveImages(items));
     const zip=new JSZip();
     items.forEach(it=>zip.file(it.name,it.url.split(',')[1],{base64:true}));
-    const url=URL.createObjectURL(await zip.generateAsync({type:'blob'}));
-    download(url,zipName); setTimeout(()=>URL.revokeObjectURL(url),2000);
-    $('saveZip').textContent='저장했어요 ✓';
+    saveBlob(await zip.generateAsync({type:'blob'}),zipName);
+    report(b,true);
   };
 }
 $('thumbBtn').onclick=()=>busy(async()=>{
@@ -2167,7 +2263,7 @@ $('recCsv').onclick=async()=>{
     const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
     const order=r=>(r.order||[]).map(x=>x.filter(Boolean).join(' / ')).join(' | ');
     const csv='\ufeff'+[ [...cols.map(c=>c[1]),'예배 순서'].map(q).join(','), ...rows.map(r=>[...cols.map(c=>q(r[c[0]])),q(order(r))].join(',')) ].join('\r\n');
-    const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); download(url,'중등부_주보_기록.csv'); setTimeout(()=>URL.revokeObjectURL(url),2000);
+    saveBlob(new Blob([csv],{type:'text/csv'}),'중등부_주보_기록.csv');
     status(`기록 ${rows.length}주를 내려받았어요.`);
   }catch(e){ status('기록을 모으지 못했어요.'); }
 };
@@ -2201,17 +2297,22 @@ $('syncSave').onclick=()=>{ if(!store()){ $('gsSetup').open=true; syncNote(NO_ST
 $('syncPull').onclick=async()=>{ const st=store(); if(!st) return $('syncSave').onclick(); try{ const s=await st.getState(); if(!s) return syncNote('저장된 내용이 아직 없어요.'); applyRemoteState(s); syncNote(`<span class="ok">${fmtTime(s.updatedAt||Date.now())}에 저장한 내용을 불러왔어요.</span>`); }catch(e){ syncNote(`<span class="warn">${esc(e.message)}</span>`); } };
 $('tabSync').onclick=()=>showTab('sync');
 /* 페이지를 떠날 때(휴대폰에서 다른 앱으로 넘어갈 때 포함) 바뀐 내용이 있으면 저장 */
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'&&dirtySync&&store()) syncSave(true); });
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='hidden') return;
+  /* 휴대폰은 다른 앱으로 넘어간 뒤 그대로 꺼질 수 있어서, 기다리던 기기 저장도 바로 함 */
+  if(dirtySync&&!viewOnly){ clearTimeout(saveTimer); try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
+  if(dirtySync&&store()) syncSave(true);
+});
 
 /* ───────── 시작 ───────── */
 fillWeekPanel(); renderAll(); showProps(); snapshot(); updUndo(); setDesign(false); try{ const t=sessionStorage.getItem(KEY+'-tab'); if(t==='share'||t==='sync') showTab(t); }catch(e){} syncSheetNote(); loadSheet(); applyFonts(); loadCustomFonts(); booting=false; dirtySync=false; syncCheck();
 document.fonts&&document.fonts.ready.then(()=>{ fit(); checkOverflow(); });
 /* 모바일 미리보기 창: 열면 뒤로 가기·Esc로 닫힘 */
 const isPreviewOpen=()=>document.body.classList.contains('preview-open');
-function openPreview(){ if(isPreviewOpen()) return; document.body.classList.add('preview-open'); try{ history.pushState({preview:1},''); }catch(e){} requestAnimationFrame(()=>{ fit(); checkOverflow(); }); }
-function closePreview(fromPop){ if(!isPreviewOpen()) return; document.body.classList.remove('preview-open'); if(!fromPop&&history.state&&history.state.preview){ try{ history.back(); }catch(e){} } }
+function openPreview(){ if(isPreviewOpen()) return; document.body.classList.add('preview-open'); pushLayer('preview'); requestAnimationFrame(()=>{ fit(); checkOverflow(); }); }
+function closePreview(fromPop){ if(!isPreviewOpen()) return; document.body.classList.remove('preview-open'); if(!fromPop) popLayer('preview'); }
 $('previewFab').onclick=openPreview; $('previewClose').onclick=()=>closePreview();
-addEventListener('popstate',()=>closePreview(true));
+addEventListener('popstate',()=>{ const s=history.state||{}; if(!s.viewer) closeThumb(true); if(!s.save) closeSave(true); if(!s.preview) closePreview(true); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&isPreviewOpen()&&!editing&&$('saveBox').hidden) closePreview(); });
 matchMedia('(max-width:860px)').addEventListener('change',e=>{ if(!e.matches) closePreview(); });
 /* 글상자가 아래 위젯을 덮지 않게 정리: 칸 높이를 바로 아래 위젯 위까지로 줄이고, 그래도 넘치면 글자를 조금씩 줄임.

@@ -790,7 +790,9 @@ try{ state=Object.assign(clone(WEEK),JSON.parse(localStorage.getItem(KEY)||'{}')
 let saveTimer=null, dirtySync=false, booting=true;
 /* 보기 전용일 땐 시트에서 받은 주보를 보여 주기만 하고 이 기기에 저장하지 않음(이 기기의 작업 내용을 덮지 않게) */
 let viewOnly=false;
-function save(){ if(viewOnly) return; if(!booting){ state.updatedAt=Date.now(); dirtySync=true; } clearTimeout(saveTimer); saveTimer=setTimeout(()=>{
+function save(){ if(viewOnly) return; if(!booting){ state.updatedAt=Date.now(); dirtySync=true; } saveLocal(); }
+/* 기기에만 저장. 시트 불러오기처럼 사람이 고친 게 아닌 변경은 이걸 써서 "이 기기에서 고침"으로 치지 않음 */
+function saveLocal(){ if(viewOnly) return; clearTimeout(saveTimer); saveTimer=setTimeout(()=>{
   try{ localStorage.setItem(KEY,JSON.stringify(state)); }
   catch(e){ status('브라우저 저장 공간이 부족해요. 큰 이미지를 줄이거나 레이아웃 파일로 저장해 두세요.'); }
 },250); }
@@ -1994,7 +1996,7 @@ function loadSheet(){
       for(const r of t.rows){ const c=r.c||[]; const d=cellText(c[iD]); const m=d.match(/(\d{1,2})[\/.월-]\s*(\d{1,2})/); if(!m) continue;
         rows[`${+m[1]}/${+m[2]}`]={rep:cellText(c[iR]),off:cellText(c[iO]),note:iN>=0?cellText(c[iN]):''}; }
       sheet={rows,at:new Date().toISOString()}; state.sheetCache=sheet; done();
-      applySheet(); save(); renderAll(); fillWeekPanel();
+      applySheet(); saveLocal(); renderAll(); fillWeekPanel();
     }catch(e){ fail('시트 내용을 읽는 중 문제가 생겼어요.'); }
   };
   const sc=document.createElement('script');
@@ -2214,15 +2216,21 @@ async function syncSave(quiet,force){
 function applyRemoteState(remote){
   const keepFonts=state.fontRoles;
   state=Object.assign(clone(WEEK),remote); if(!state.fontRoles) state.fontRoles=keepFonts; state.syncBase=remote.updatedAt||0; dirtySync=false;
+  if(sheet){ state.sheetCache=sheet; applySheet(); } /* 저장본엔 시트 내용이 없어서 다시 채움 */
   try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){}
   sel=null; fillWeekPanel(); applyFonts(); renderAll(); showProps(); snapshot();
 }
+const fieldBusy=()=>designMode||editing||/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'');
 async function syncCheck(){
   const st=store(); if(!st) return;
   try{
     const remote=await st.getState(); if(!remote){ syncNote(`${st.name}에 아직 저장된 내용이 없어요. "지금 저장"을 눌러 주세요.`); return; }
     const rt=remote.updatedAt||0;
-    if(rt>(state.syncBase||0)+1000) showRemoteBanner(remote,false);
+    if(rt>(state.syncBase||0)+1000){
+      /* 이 기기에서 고친 게 없으면 묻지 않고 바로 최신으로 바꿈 */
+      if(!dirtySync&&(state.updatedAt||0)<=(state.syncBase||0)+1000&&!fieldBusy()){ applyRemoteState(remote); $('syncBanner').hidden=true; status('최신 내용을 불러왔어요.'); }
+      else showRemoteBanner(remote,false);
+    }
     syncNote(`${st.name} 연결됨 · 마지막 저장 ${fmtTime(rt)}`);
   }catch(e){ syncNote(`<span class="warn">${st.name}에 연결하지 못했어요. ${esc(e.message)}</span>`); }
 }
@@ -2303,6 +2311,17 @@ document.addEventListener('visibilitychange',()=>{
   if(dirtySync&&!viewOnly){ clearTimeout(saveTimer); try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
   if(dirtySync&&store()) syncSave(true);
 });
+/* 홈 화면 앱은 닫았다 열어도 페이지를 새로 읽지 않고 멈춘 자리에서 이어짐: 돌아올 때마다 최신 내용을 확인 */
+let lastFresh=Date.now();
+function refreshOnReturn(){
+  if(Date.now()-lastFresh<20000||syncing) return;
+  lastFresh=Date.now();
+  if(viewOnly) return pullViewer();
+  if(!fieldBusy()) loadSheet();
+  syncCheck();
+}
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') refreshOnReturn(); });
+addEventListener('pageshow',e=>{ if(e.persisted) refreshOnReturn(); });
 
 /* ───────── 시작 ───────── */
 fillWeekPanel(); renderAll(); showProps(); snapshot(); updUndo(); setDesign(false); try{ const t=sessionStorage.getItem(KEY+'-tab'); if(t==='share'||t==='sync') showTab(t); }catch(e){} syncSheetNote(); loadSheet(); applyFonts(); loadCustomFonts(); booting=false; dirtySync=false; syncCheck();
@@ -2356,9 +2375,12 @@ if(!state.designV12){
 async function enterViewer(note){
   viewOnly=true; if(designMode) setDesign(false); closePreview(); document.body.classList.add('viewer');
   requestAnimationFrame(()=>{ fit(); checkOverflow(); });
+  await pullViewer(note);
+}
+async function pullViewer(note){
   try{
     const s=(await gsCall('view')).state;
-    if(s){ state=Object.assign(clone(WEEK),s); sel=null; applyFonts(); renderAll(); }
+    if(s&&s.updatedAt!==state.updatedAt){ state=Object.assign(clone(WEEK),s); sel=null; applyFonts(); renderAll(); }
     status(note||'');
   }catch(e){ status(note||'최신 주보를 불러오지 못해서 이 기기에 있던 내용을 보여 줘요.'); }
 }

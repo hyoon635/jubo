@@ -1,0 +1,14 @@
+{
+  "name": "중등부 주보 만들기",
+  "short_name": "중등부 주보",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#e6428c",
+  "background_color": "#f4f5f7",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

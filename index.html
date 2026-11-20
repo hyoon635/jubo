@@ -397,7 +397,7 @@ body.viewer .syncbadge{display:none!important}
           <legend>기본 레이아웃</legend>
           <div id="baseNote" class="note"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn primary small" id="baseApply">기본 레이아웃으로 바꾸기</button><button type="button" class="btn small" id="baseSet">지금 모양을 기본으로 정하기</button></div>
-          <p class="hint">소식·고정 문구·위젯 위치가 기본 레이아웃 것으로 바뀌어요. 예배 순서·성경 읽기·암송 같은 이번 주 내용은 그대로예요.</p>
+          <p class="hint">소식·고정 문구·위젯 위치와 예배 순서의 줄 구성이 기본 것으로 바뀌어요. 찬송·본문·제목처럼 이번 주에 넣은 내용과 기도자, 성경 읽기, 암송은 그대로 둬요.</p>
         </fieldset>
 
         <fieldset>
@@ -1795,16 +1795,43 @@ const STD_LAYOUT={"pages":[{"name":"겉면","sub":"뒤표지 · 앞표지","ws":
 const baseLayoutNow=()=>state.baseLayout?state.baseLayout.layout:STD_LAYOUT;
 function renderBaseNote(){
   const b=state.baseLayout;
-  $('baseNote').innerHTML=b?`${fmtTime(b.at)}에 정한 모양이에요${b.date?` (${esc(b.date.replace(/-/g,'.'))} 주보)`:''}.`:'평소 주보 모양(2026.11.15 주보 기준)이 기본이에요. 다른 모양을 쓰려면 그 모양일 때 "지금 모양을 기본으로 정하기"를 눌러 주세요.';
+  $('baseNote').innerHTML=b?`${fmtTime(b.at)}에 정한 모양이에요${b.date?` (${esc(b.date.replace(/-/g,'.'))} 주보)`:''}.`:'평소 주보 모양(2026.11.08 주보 기준)이 기본이에요. 다른 모양을 쓰려면 그 모양일 때 "지금 모양을 기본으로 정하기"를 눌러 주세요.';
 }
 function armTwice(b,label,ask,fn){
   if(b.dataset.armed!=='1'){ b.dataset.armed='1'; b.textContent=ask; setTimeout(()=>{ b.dataset.armed=''; b.textContent=label; },3500); return; }
   b.dataset.armed=''; b.textContent=label; fn();
 }
-function setBaseLayout(){ state.baseLayout={at:Date.now(),date:state.date,layout:clone(state.layout)}; save(); renderBaseNote(); status('지금 모양을 기본 레이아웃으로 정했어요.'); }
-function applyBaseLayout(){
+function setBaseLayout(){ state.baseLayout={at:Date.now(),date:state.date,layout:clone(state.layout),order:clone(state.order)}; save(); renderBaseNote(); status('지금 모양을 기본 레이아웃으로 정했어요.'); }
+/* 기본 예배 순서: 따로 정한 기본이 없으면 STD_ORDER_DATE(11/08) 기록의 순서를 쓰고, 기록을 못 읽으면 STD_ORDER(평소 순서) */
+const STD_ORDER_DATE='2026-11-08';
+const STD_ORDER=[['예배 선언','','사회자'],['신앙 고백','','다같이'],['찬송','','다같이'],['대표기도','',''],['오늘의 말씀','','사회자'],['찬양','','다윗 찬양대'],['말씀 제목','',''],['헌금','','다같이'],['헌금 기도','',''],['광고','','사회자'],['축도','','']];
+async function baseOrderTpl(){
+  if(state.baseLayout) return state.baseLayout.order||null;
+  try{ const st=store(); const r=st&&await st.getRecord(STD_ORDER_DATE); if(r&&Array.isArray(r.order)&&r.order.length) return r.order; }catch(e){}
+  return STD_ORDER;
+}
+/* 순서(줄 이름·오른쪽 칸)는 기본 것을 따르고, 가운데 칸(찬송·본문·제목 등)은 이번 주에 같은 이름의 줄이 있으면 그 값을 씀(없으면 빈칸).
+   신앙 고백·광고·축도·기도 줄의 가운데 칸은 매주 같으므로 기본 것을 씀.
+   설교자 줄(말씀 제목·축도)은 이번 주 설교자, 기도자는 구글 시트에서 다시 채움 */
+function mergeOrder(tpl,cur){
+  const used=new Set();
+  return tpl.map(([a,b,c])=>{
+    const i=cur.findIndex((r,k)=>!used.has(k)&&norm(r[0])===norm(a));
+    if(i>=0) used.add(i);
+    const m=i>=0?cur[i]:null, n=norm(a);
+    const fixedMid=n==='신앙고백'||n==='예배선언'||n==='광고'||n==='축도'||/기도$/.test(n);
+    const mid=fixedMid?b:(m?m[1]:'');
+    let right=c;
+    if((n==='말씀제목'||n==='축도')&&state.preacher) right=state.preacher;
+    else if(/기도$/.test(n)&&m&&m[2]) right=m[2];
+    return [a,mid,right];
+  });
+}
+async function applyBaseLayout(){
+  const tpl=await baseOrderTpl();
   state.layout=clone(baseLayoutNow()); sel=null; selIds=new Set();
-  save(); renderAll(); showProps(); snapshot(); status('기본 레이아웃으로 바꿨어요. ↶ 취소로 되돌릴 수 있어요.');
+  if(tpl){ state.order=mergeOrder(clone(tpl),state.order); applySheet(); }
+  save(); fillWeekPanel(); renderAll(); showProps(); snapshot(); status('기본 레이아웃과 예배 순서로 바꿨어요.');
 }
 $('baseSet').onclick=e=>{ const b=e.currentTarget; state.baseLayout?armTwice(b,'지금 모양을 기본으로 정하기','한 번 더 누르면 기본을 바꿔요',setBaseLayout):setBaseLayout(); };
 $('baseApply').onclick=e=>armTwice(e.currentTarget,'기본 레이아웃으로 바꾸기','한 번 더 누르면 바꿔요',applyBaseLayout);

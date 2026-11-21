@@ -876,8 +876,12 @@ function syncBible(){
       if(document.activeElement!==$('bibleCh')) $('bibleCh').value=biblePend.ch;
       $('biblePendText').innerHTML=`<b>아직 안 바뀌었어요.</b> 바꾸면 이번 주(${md(state.date)}) 주보가 <b>${esc(bibleRange(0,toIdx(biblePend.book,biblePend.ch)))}</b>이 되고, 지난 주보들과 다음 주부터도 모두 이 진도에 맞춰 달라져요.<br><span style="color:var(--muted)">지금: ${esc(bibleRange())}</span>`;
     }else{ $('bibleBook').value=b; $('bibleCh').max=chOf(b); if(document.activeElement!==$('bibleCh')) $('bibleCh').value=ch; }
-    state.bible=bibleRange(); $('bible').value=state.bible;
-    $('bibleCompare').innerHTML=`<div><span style="color:var(--muted)">지난주(${md(addDays(state.date,-7))}) 주보</span> &nbsp;${esc(bibleRange(-1))}</div><div><b style="color:var(--accent)">이번 주(${md(state.date)}) 주보</b> &nbsp;<b>${esc(state.bible)}</b></div>`;
+    /* 지난 주보를 불러온 경우: 날짜가 그대로인 동안은 그 주에 실제로 나간 성경 읽기를 보여 줌 */
+    if(state.bibleHold&&state.bibleHold.date!==state.date) delete state.bibleHold;
+    const hold=state.bibleHold;
+    state.bible=hold?hold.text:bibleRange(); $('bible').value=state.bible;
+    $('bibleCompare').innerHTML=`<div><span style="color:var(--muted)">지난주(${md(addDays(state.date,-7))}) 주보</span> &nbsp;${esc(bibleRange(-1))}</div><div><b style="color:var(--accent)">이번 주(${md(state.date)}) 주보</b> &nbsp;<b>${esc(state.bible)}</b></div>`
+      +(hold?`<div style="color:var(--muted);margin-top:4px">불러온 ${md(state.date)} 주보에 실제로 나간 내용이에요.${hold.text!==bibleRange()?` 지금 진도대로라면 ${esc(bibleRange())}`:''}</div>`:'');
   }
 }
 
@@ -1674,7 +1678,7 @@ function pickBible(){
 }
 $('bibleBook').onchange=()=>{ $('bibleCh').value=1; pickBible(); };
 $('bibleCh').onchange=pickBible;
-$('biblePendOk').onclick=()=>{ if(!biblePend) return; state.bibleBase={date:state.date,book:biblePend.book,ch:biblePend.ch}; biblePend=null; save(); renderAll(); status('성경 읽기 진도를 바꿨어요.'); };
+$('biblePendOk').onclick=()=>{ if(!biblePend) return; state.bibleBase={date:state.date,book:biblePend.book,ch:biblePend.ch}; biblePend=null; delete state.bibleHold; save(); renderAll(); status('성경 읽기 진도를 바꿨어요.'); };
 $('biblePendCancel').onclick=()=>{ biblePend=null; renderAll(); };
 $('bibleAuto').onchange=()=>{ state.bibleAuto=$('bibleAuto').checked; save(); renderAll(); };
 
@@ -2437,6 +2441,8 @@ $('recList').addEventListener('click',async e=>{
   try{
     const rec=await store().getRecord(b.dataset.rec); if(!rec) return;
     REC_KEYS.forEach(k=>{ if(rec[k]!==undefined) state[k]=JSON.parse(JSON.stringify(rec[k])); });
+    /* 성경 읽기는 자동 진도로 다시 계산하지 않고 그 주 기록 그대로(날짜를 바꾸면 다시 자동 진도) */
+    if(typeof rec.bible==='string'&&rec.bible.trim()) state.bibleHold={date:state.date,text:rec.bible}; else delete state.bibleHold;
     if(state.memRef&&state.memText) state.verseLib[refKey(state.memRef)]=state.memText;
     const hasLay=rec.layout&&Array.isArray(rec.layout.pages);
     if(hasLay){ state.layout=restoreRecLayout(rec.layout); sel=null; selIds=new Set(); }

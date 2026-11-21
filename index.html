@@ -97,6 +97,11 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outli
 .note{padding:11px 13px;border-radius:10px;background:var(--accent-soft);font-size:13px;line-height:1.6}
 .order{display:grid;gap:6px}
 .orow{display:grid;grid-template-columns:1fr 1.4fr 1fr 28px;gap:5px;align-items:center}
+#order .orow{grid-template-columns:1fr 1.4fr 1fr auto}
+.otools{display:flex}
+.otools .icon-btn{width:22px;padding:0;font-size:14px}
+.otools .icon-btn:disabled{opacity:.25;cursor:default}
+#orderNote{display:grid;gap:6px}
 .orow input{padding:7px 9px;font-size:13px;border-radius:8px}
 .orow input.need{border-color:#e0607e;background:#fff1f4}
 .checklist-issues{margin:0;padding-left:18px;display:grid;gap:4px;font-size:13.5px;line-height:1.5}
@@ -337,11 +342,14 @@ body.viewer .syncbadge{display:none!important}
   .row3{grid-template-columns:1fr 1fr}
   /* 예배 순서: 칸이 좁아 글자가 잘리므로 내용 칸을 아랫줄 전체로 */
   #order{gap:10px}
-  #order .orow{grid-template-columns:1fr 1fr 32px}
+  #order .orow{grid-template-columns:1fr 1fr auto}
   #order .orow>:nth-child(1){grid-area:1/1}
-  #order .orow>:nth-child(2){grid-area:2/1/auto/-1}
+  #order .orow>:nth-child(2){grid-area:2/1/auto/3}
   #order .orow>:nth-child(3){grid-area:1/2}
-  #order .orow>:nth-child(4){grid-area:1/3}
+  #order .orow>:nth-child(4){grid-area:1/3/3/4}
+  #order .orow.ohead>:nth-child(4){grid-area:1/3}
+  /* 좁을 땐 ↑ ↓ / ＋ × 두 줄로 */
+  .otools{display:grid;grid-template-columns:repeat(2,auto);align-content:center}
 }
 @media (max-width:960px){
   .pages{overscroll-behavior:contain;padding-bottom:calc(40px + env(safe-area-inset-bottom))}
@@ -455,9 +463,10 @@ body.viewer .syncbadge{display:none!important}
             <label>찬양인도 <input id="praise"></label>
             <label>설교자 <input id="preacher"></label>
           </div>
+          <div id="orderNote" hidden></div>
           <div class="order" id="order"></div>
           <div><button type="button" class="btn small" id="addRow">+ 순서 추가</button></div>
-          <p class="hint">순서 · 내용(가운데) · 담당(오른쪽)</p>
+          <p class="hint">순서 · 내용(가운데) · 담당(오른쪽). 줄 오른쪽 ↑↓로 옮기고, ＋로 바로 아래에 줄을 끼워요.</p>
         </fieldset>
 
         <fieldset>
@@ -1667,11 +1676,43 @@ function renderOrderEditor(){
     <input id="o${i}a" aria-label="순서 ${i+1}" value="${esc(r[0])}" data-i="${i}" data-j="0">
     <input id="o${i}b" aria-label="내용 ${i+1}" value="${esc(r[1])}" data-i="${i}" data-j="1"${nc(r,1)}${needCell(r,1)?' placeholder="이번 주 내용"':''}>
     <input id="o${i}c" aria-label="담당 ${i+1}" value="${esc(r[2])}" data-i="${i}" data-j="2"${nc(r,2)}>
-    <button type="button" class="icon-btn" data-del="${i}" aria-label="${i+1}번째 순서 삭제" title="삭제">×</button></div>`).join('');
-  syncChoirSong();
+    <div class="otools"><button type="button" class="icon-btn" data-mv="-1" data-at="${i}" aria-label="${i+1}번째 순서 위로" title="위로"${i===0?' disabled':''}>↑</button><button type="button" class="icon-btn" data-mv="1" data-at="${i}" aria-label="${i+1}번째 순서 아래로" title="아래로"${i===state.order.length-1?' disabled':''}>↓</button><button type="button" class="icon-btn" data-ins="${i}" aria-label="${i+1}번째 순서 아래에 줄 끼우기" title="아래에 줄 끼우기">＋</button><button type="button" class="icon-btn" data-del="${i}" aria-label="${i+1}번째 순서 삭제" title="삭제">×</button></div></div>`).join('');
+  syncChoirSong(); renderOrderNote();
 }
 $('order').addEventListener('input',e=>{ const t=e.target; if(t.dataset.i==null) return; const r=state.order[t.dataset.i]; r[t.dataset.j]=t.value; save(); renderPages(); syncChoirSong();
-  [1,2].forEach(j=>{ const el=$(`o${t.dataset.i}${'abc'[j]}`); if(el) el.classList.toggle('need',needCell(r,j)); }); });
+  [1,2].forEach(j=>{ const el=$(`o${t.dataset.i}${'abc'[j]}`); if(el) el.classList.toggle('need',needCell(r,j)); });
+  if(t.dataset.j==='0') renderOrderNote(); });
+
+/* ───────── 평소 순서 · 특별 주일 ─────────
+   평소 순서 = 기본 레이아웃에 정한 순서(없으면 11/08 기록, 못 읽으면 STD_ORDER). 지금 순서의 줄 이름이 이것과 다르면 특별 순서로 보고 알려 줌 */
+let baseOrderCache=null, baseOrderAsked=false, orderUndo=null;
+function baseOrderNow(){
+  if(state.baseLayout&&state.baseLayout.order) return state.baseLayout.order;
+  if(!baseOrderAsked){ baseOrderAsked=true; baseOrderTpl().then(t=>{ if(t){ baseOrderCache=t; renderOrderNote(); } }).catch(()=>{}); }
+  return baseOrderCache||STD_ORDER;
+}
+const orderLabels=o=>o.map(r=>norm(r[0])).filter(Boolean).join('|');
+const isSpecialOrder=()=>orderLabels(state.order)!==orderLabels(baseOrderNow());
+/* 썸네일·카톡 글·시트 기도자가 값을 찾는 줄이 없으면 알려 줌 */
+function orderLinkIssues(){
+  const out=[], miss=l=>!findOrderRow(l);
+  if(miss('말씀제목')) out.push('<b>말씀 제목</b> 줄이 없어서 썸네일·카톡·유튜브 글에 설교 제목이 빠져요.');
+  if(miss('오늘의말씀')) out.push('<b>오늘의 말씀</b> 줄이 없어서 썸네일·카톡·유튜브 글에 본문이 빠져요.');
+  if(miss('찬양')) out.push('<b>찬양</b> 줄이 없어서 찬양대 썸네일에 곡 제목이 빠져요.');
+  if(miss('대표기도')) out.push('<b>대표기도</b> 줄이 없어서 시트의 대표기도자를 넣지 못해요.');
+  if(miss('헌금기도')) out.push('<b>헌금 기도</b> 줄이 없어서 시트의 헌금기도자를 넣지 못해요.');
+  return out;
+}
+function renderOrderNote(){
+  const el=$('orderNote'); if(!el) return; let h='';
+  if(orderUndo) h+=`<div class="note"><div class="ok">평소 순서로 바꿨어요.</div><div style="margin-top:6px"><button type="button" class="btn small" id="orderUndo">되돌리기</button></div></div>`;
+  else if(isSpecialOrder()) h+=`<div class="note"><b>평소와 다른 순서예요.</b> 특별 주일이 아니라면 평소 순서로 되돌려 주세요. 같은 이름의 줄에 넣은 이번 주 내용은 그대로 옮겨요.<div style="margin-top:6px"><button type="button" class="btn small" id="orderNormal">평소 순서로 되돌리기</button></div></div>`;
+  const li=orderLinkIssues();
+  if(li.length) h+=`<div class="note">${li.map(t=>`<div class="warn">${t}</div>`).join('')}<div style="color:var(--muted);font-size:12px;margin-top:4px">줄 이름을 위처럼 쓰거나 "설교 제목", "본문", "특송"처럼 비슷한 이름이면 알아봐요.</div></div>`;
+  el.innerHTML=h; el.hidden=!h;
+  const u=$('orderUndo'); if(u) u.onclick=()=>{ state.order=orderUndo; orderUndo=null; save(); renderOrderEditor(); renderPages(); status('예배 순서를 되돌렸어요.'); };
+  const n=$('orderNormal'); if(n) n.onclick=()=>{ orderUndo=clone(state.order); state.order=mergeOrder(clone(baseOrderNow()),state.order); applySheet(); save(); renderOrderEditor(); renderPages(); status('평소 예배 순서로 바꿨어요.'); };
+}
 /* 성가대곡 칸 = 예배 순서 "찬양" 줄의 내용. 줄이 없으면 "말씀 제목" 앞에 새로 만듦 */
 function syncChoirSong(){ const el=$('choirSong'); if(el&&document.activeElement!==el) el.value=getOrderCell('찬양',1)||''; }
 function setChoirSong(v){
@@ -1680,8 +1721,15 @@ function setChoirSong(v){
   state.order.splice(at<0?state.order.length:at,0,['찬양',v,'다윗 찬양대']); return true;
 }
 $('choirSong').addEventListener('input',()=>{ setChoirSong($('choirSong').value.trim()); save(); renderOrderEditor(); renderPages(); });
-$('order').addEventListener('click',e=>{ const d=e.target.closest('[data-del]'); if(!d) return; state.order.splice(+d.dataset.del,1); save(); renderOrderEditor(); renderPages(); });
-$('addRow').onclick=()=>{ state.order.push(['','','']); save(); renderOrderEditor(); renderPages(); $('o'+(state.order.length-1)+'a').focus(); };
+$('order').addEventListener('click',e=>{
+  const b=e.target.closest('[data-del],[data-mv],[data-ins]'); if(!b||b.disabled) return; let focus=null;
+  if(b.dataset.del!=null) state.order.splice(+b.dataset.del,1);
+  else if(b.dataset.ins!=null){ const at=+b.dataset.ins+1; state.order.splice(at,0,['','','']); focus=`o${at}a`; }
+  else{ const i=+b.dataset.at, j=i+(+b.dataset.mv); if(j<0||j>=state.order.length) return; [state.order[i],state.order[j]]=[state.order[j],state.order[i]]; focus=`o${j}a`; }
+  orderUndo=null; save(); renderOrderEditor(); renderPages();
+  if(focus&&$(focus)){ if(b.dataset.ins!=null) $(focus).focus(); else { const nb=document.querySelector(`#order [data-mv="${b.dataset.mv}"][data-at="${focus.slice(1,-1)}"]`); if(nb&&!nb.disabled) nb.focus(); } }
+});
+$('addRow').onclick=()=>{ state.order.push(['','','']); orderUndo=null; save(); renderOrderEditor(); renderPages(); $('o'+(state.order.length-1)+'a').focus(); };
 
 $('bibleBook').innerHTML=BOOKS.map(([b])=>`<option>${b}</option>`).join('');
 /* 책·장을 바꿔도 바로 기준을 바꾸지 않고, "이 진도로 바꾸기"를 눌러야 바뀜(실수로 진도가 밀리지 않게) */
@@ -1861,7 +1909,10 @@ async function baseOrderTpl(){
 function mergeOrder(tpl,cur){
   const used=new Set();
   return tpl.map(([a,b,c])=>{
-    const i=cur.findIndex((r,k)=>!used.has(k)&&norm(r[0])===norm(a));
+    /* 같은 이름을 먼저, 없으면 비슷한 이름(설교 → 말씀 제목 등) */
+    const na=norm(a), g=ORDER_ALIASES.find(g=>g.includes(na));
+    let i=cur.findIndex((r,k)=>!used.has(k)&&norm(r[0])===na);
+    if(i<0&&g) i=cur.findIndex((r,k)=>!used.has(k)&&g.includes(norm(r[0])));
     if(i>=0) used.add(i);
     const m=i>=0?cur[i]:null, n=norm(a);
     const fixedMid=n==='신앙고백'||n==='예배선언'||n==='광고'||n==='축도'||/기도$/.test(n);
@@ -2120,10 +2171,21 @@ const isName=n=>/^[가-힣]{2,4}$/.test(n);
 const withSuffix=(n,suf)=>{ n=String(n||'').trim(); if(!n) return ''; if(SUFFIX_RE.test(n)||!isName(n)) return n; return `${n} ${suf}`; };
 const bareName=n=>String(n||'').trim().replace(/\s*(렘넌트|선생님|교사)$/,'');
 const norm=s=>String(s||'').replace(/\s+/g,'');
-function setOrderCell(label,col,val){
-  const r=state.order.find(r=>norm(r[0])===norm(label)); if(!r) return false; r[col]=val; return true;
+/* 특별 주일에 줄 이름을 달리 써도 찾을 수 있게 비슷한 이름을 묶음(앞이 기준 이름). 똑같은 이름의 줄이 있으면 그것을 먼저 씀 */
+const ORDER_ALIASES=[
+  ['말씀제목','설교제목','설교','제목'],
+  ['오늘의말씀','본문','성경봉독','봉독','성경본문','말씀본문','성경말씀'],
+  ['찬양','성가대','성가대찬양','찬양대','찬양대찬양','특송','특별찬양'],
+  ['대표기도','기도','기도순서'],
+  ['헌금기도','봉헌기도'],
+  ['헌금','헌금찬송','봉헌','봉헌찬송'],
+  ['찬송','찬송가','다같이찬송']];
+function findOrderRow(label){
+  const n=norm(label); const ex=state.order.find(r=>norm(r[0])===n); if(ex) return ex;
+  const g=ORDER_ALIASES.find(g=>g.includes(n)); return g?state.order.find(r=>g.includes(norm(r[0])))||null:null;
 }
-const getOrderCell=(label,col)=>{ const r=state.order.find(r=>norm(r[0])===norm(label)); return r?r[col]:''; };
+function setOrderCell(label,col,val){ const r=findOrderRow(label); if(!r) return false; r[col]=val; return true; }
+const getOrderCell=(label,col)=>{ const r=findOrderRow(label); return r?r[col]:''; };
 
 /* ───────── 구글 시트 ───────── */
 let sheet=null; /* {rows:{'10/18':{rep,off,note}}, at} */
@@ -2211,7 +2273,7 @@ async function startNewWeek(){
   $('paste').value=''; $('pasteResult').hidden=true;
   save(); fillWeekPanel(); renderAll(); renderNewWeekHint();
   $('paste').scrollIntoView({block:'center',behavior:'smooth'});
-  status(`${ymd(state.date)} 주보를 시작했어요. 전달받은 내용을 붙여 넣어 주세요.`);
+  status(`${ymd(state.date)} 주보를 시작했어요. ${isSpecialOrder()?'지난주는 평소와 다른 순서였어요. 예배 순서에서 "평소 순서로 되돌리기"를 확인해 주세요.':'전달받은 내용을 붙여 넣어 주세요.'}`);
 }
 $('newWeek').onclick=e=>armTwice(e.currentTarget,'다음 주 주보 시작하기','한 번 더 누르면 다음 주로 넘어가요',startNewWeek);
 
@@ -2227,6 +2289,7 @@ function weekIssues(){
       if(p&&String(p[1]).trim()===String(r[1]).trim()) out.push(`<b>${esc(lab)}</b> 내용이 지난주와 같아요: ${esc(r[1])}`);
     }
   }
+  out.push(...orderLinkIssues());
   if(!String(state.preacher||'').trim()) out.push('설교자가 비어 있어요.');
   if(!String(state.memRef||'').trim()) out.push('암송 구절이 비어 있어요.');
   else{
@@ -2341,7 +2404,7 @@ function applyPasteNow(){
 let pasteExtras=[];
 $('pasteResult').addEventListener('click',e=>{
   const b=e.target.closest('[data-extra]'); if(!b||b.disabled) return; const x=pasteExtras[+b.dataset.extra]; if(!x) return;
-  const pray=/기도$/.test(norm(x.label)), row=[x.label,pray?'':x.val,pray?x.val:''];
+  const pray=/기도$/.test(norm(x.label)), row=[x.label,pray?'':x.val,pray?x.val:'']; orderUndo=null;
   if(!setOrderCell(x.label,pray?2:1,x.val)){ const at=state.order.findIndex(r=>norm(r[0])==='광고'); state.order.splice(at<0?state.order.length:at,0,row); }
   b.disabled=true; b.textContent='넣었어요 ✓'; save(); renderOrderEditor(); renderPages();
 });

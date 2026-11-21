@@ -98,6 +98,8 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outli
 .order{display:grid;gap:6px}
 .orow{display:grid;grid-template-columns:1fr 1.4fr 1fr 28px;gap:5px;align-items:center}
 .orow input{padding:7px 9px;font-size:13px;border-radius:8px}
+.orow input.need{border-color:#e0607e;background:#fff1f4}
+.checklist-issues{margin:0;padding-left:18px;display:grid;gap:4px;font-size:13.5px;line-height:1.5}
 .ohead{font-size:11px;color:var(--muted);font-weight:600}
 .icon-btn{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;border-radius:8px;height:28px}
 .icon-btn:hover{background:var(--accent-soft);color:var(--accent)}
@@ -386,6 +388,12 @@ body.viewer .syncbadge{display:none!important}
     <div class="side-body">
       <div id="fontWarn" class="note warn" hidden style="margin:0 0 12px"></div>
       <div id="panelWeek">
+        <fieldset>
+          <legend>새 주보 시작</legend>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn primary small" id="newWeek">다음 주 주보 시작하기</button></div>
+          <p class="hint" id="newWeekHint"></p>
+        </fieldset>
+
         <fieldset>
           <legend>전달받은 내용 붙여넣기</legend>
           <textarea id="paste" class="paste" placeholder="✎ 전달받은 내용을 붙여 넣으세요 (아래는 예시)&#10;&#10;[2026.10.18 중등부 예배]&#10;찬송 : 찬171장 하나님의 독생자 예수&#10;제목 : 부활하신 그리스도의 메세지&#10;본문 : 행1:8&#10;헌금찬송 : 말씀대로 되리라&#10;성가대곡 : 천국 열쇠를 사용해요&#10;암송구절 : 마28:18~20"></textarea>
@@ -1649,15 +1657,21 @@ $('panelProps').addEventListener('click',e=>{
 /* ───────── 이번 주 내용 패널 ───────── */
 const FIELDS=['thumbChurch','thumbChoirChurch','date','host','praise','preacher','nextPrayer','nextOffering','bible'];
 function bindFields(){ FIELDS.forEach(k=>{ const el=$(k); el.value=state[k]??''; el.oninput=()=>{ if(k==='date'){ changeDate(el.value); renderOrderEditor(); $('nextPrayer').value=state.nextPrayer; $('nextOffering').value=state.nextOffering; } else state[k]=el.value; save(); renderAll(); }; }); }
+/* 매주 같은 내용이라 새 주보에서도 비우지 않는 줄(가운데 칸). 기도 줄은 가운데가 원래 비어 있고 담당(기도자)만 바뀜 */
+function fixedMid(label){ const n=norm(label); return n==='신앙고백'||n==='예배선언'||n==='광고'||n==='축도'||/기도$/.test(n); }
+/* 이번 주에 채워야 하는데 비어 있는 칸: 가운데(매주 바뀌는 줄) 또는 기도 줄의 담당 */
+function needCell(r,j){ if(!String(r[0]).trim()) return false; if(j===1) return !fixedMid(r[0])&&!String(r[1]).trim(); if(j===2) return /기도$/.test(norm(r[0]))&&!String(r[2]).trim(); return false; }
 function renderOrderEditor(){
+  const nc=(r,j)=>needCell(r,j)?' class="need"':'';
   $('order').innerHTML='<div class="orow ohead"><span>순서</span><span>내용</span><span>담당</span><span></span></div>'+state.order.map((r,i)=>`<div class="orow">
     <input id="o${i}a" aria-label="순서 ${i+1}" value="${esc(r[0])}" data-i="${i}" data-j="0">
-    <input id="o${i}b" aria-label="내용 ${i+1}" value="${esc(r[1])}" data-i="${i}" data-j="1">
-    <input id="o${i}c" aria-label="담당 ${i+1}" value="${esc(r[2])}" data-i="${i}" data-j="2">
+    <input id="o${i}b" aria-label="내용 ${i+1}" value="${esc(r[1])}" data-i="${i}" data-j="1"${nc(r,1)}${needCell(r,1)?' placeholder="이번 주 내용"':''}>
+    <input id="o${i}c" aria-label="담당 ${i+1}" value="${esc(r[2])}" data-i="${i}" data-j="2"${nc(r,2)}>
     <button type="button" class="icon-btn" data-del="${i}" aria-label="${i+1}번째 순서 삭제" title="삭제">×</button></div>`).join('');
   syncChoirSong();
 }
-$('order').addEventListener('input',e=>{ const t=e.target; if(t.dataset.i==null) return; state.order[t.dataset.i][t.dataset.j]=t.value; save(); renderPages(); syncChoirSong(); });
+$('order').addEventListener('input',e=>{ const t=e.target; if(t.dataset.i==null) return; const r=state.order[t.dataset.i]; r[t.dataset.j]=t.value; save(); renderPages(); syncChoirSong();
+  [1,2].forEach(j=>{ const el=$(`o${t.dataset.i}${'abc'[j]}`); if(el) el.classList.toggle('need',needCell(r,j)); }); });
 /* 성가대곡 칸 = 예배 순서 "찬양" 줄의 내용. 줄이 없으면 "말씀 제목" 앞에 새로 만듦 */
 function syncChoirSong(){ const el=$('choirSong'); if(el&&document.activeElement!==el) el.value=getOrderCell('찬양',1)||''; }
 function setChoirSong(v){
@@ -1786,7 +1800,7 @@ $('fixedList').addEventListener('input',e=>{
   w.p.text=e.target.value; rerenderWidget({pi:+pi,id}); save(); queueSnapshot();
 });
 
-function fillWeekPanel(){ SHARE_FIELDS.forEach(k=>{ const el=$(k); if(el) el.value=state[k]??''; }); renderFixed(); setTimeout(syncMemLink,0); bindFields(); renderOrderEditor(); renderTeams(); $('memRef').value=state.memRef; $('memText').value=state.memText; refreshVerseList(); memHint(); renderBaseNote(); }
+function fillWeekPanel(){ SHARE_FIELDS.forEach(k=>{ const el=$(k); if(el) el.value=state[k]??''; }); renderFixed(); setTimeout(syncMemLink,0); bindFields(); renderOrderEditor(); renderTeams(); $('memRef').value=state.memRef; $('memText').value=state.memText; refreshVerseList(); memHint(); renderBaseNote(); renderNewWeekHint(); }
 
 /* ───────── 레이아웃 파일 ───────── */
 function download(url,name){ const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
@@ -1895,13 +1909,13 @@ async function busy(fn){
   finally{ btns.forEach(b=>b.disabled=false); sel=prev; drawSel(); }
 }
 /* 브라우저가 한 번에 여러 파일 내려받기를 막기 때문에, 만든 뒤 한 장씩 눌러 저장 */
-$('pngBtn').onclick=()=>busy(async()=>{
+$('pngBtn').onclick=()=>checkThen('이미지 저장',()=>busy(async()=>{
   const items=[];
   for(let i=0;i<state.layout.pages.length;i++){ const name=state.layout.pages[i].name; status(`${name} 이미지 만드는 중…`); items.push({label:name,url:await toPng(pageEl(i)),name:`${fileBase()}-${i+1}.png`}); }
   status('');
   syncSave(true);
   showSaveDialog('이미지 저장',items,`${fileBase()}.zip`);
-});
+}));
 function dataToFile(url,name){
   const [head,b64]=url.split(','), bin=atob(b64), bytes=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
@@ -1967,7 +1981,7 @@ $('thumbBtn').onclick=()=>busy(async()=>{
   syncSave(true);
   showSaveDialog('썸네일 저장',[{label:'예배 영상 썸네일',url:w,name:`중등부_예배썸네일_${ymd6}.png`},{label:'찬양대 썸네일',url:b,name:`중등부_찬양썸네일_${ymd6}.png`}],`중등부_썸네일_${ymd6}.zip`);
 });
-$('pdfBtn').onclick=()=>busy(async()=>{
+$('pdfBtn').onclick=()=>checkThen('PDF 저장',()=>busy(async()=>{
   const pdf=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   for(let i=0;i<state.layout.pages.length;i++){
     status(`${state.layout.pages[i].name} 만드는 중…`);
@@ -1976,8 +1990,8 @@ $('pdfBtn').onclick=()=>busy(async()=>{
   }
   if(isIOS){ status(''); syncSave(true); return showPdfDialog(pdf.output('blob'),`${fileBase()}.pdf`); }
   pdf.save(`${fileBase()}.pdf`); status('PDF를 저장했어요.'); syncSave(true);
-});
-$('printBtn').onclick=()=>{ if(editing) endEdit(); const prev=sel; sel=null; drawSel(); window.print(); sel=prev; drawSel(); };
+}));
+$('printBtn').onclick=()=>checkThen('인쇄',()=>{ if(editing) endEdit(); const prev=sel; sel=null; drawSel(); window.print(); sel=prev; drawSel(); });
 
 /* ───────── 글꼴 ───────── */
 const GOOGLE={'Bebas Neue':'Bebas+Neue','Gothic A1':'Gothic+A1:wght@700','Black Han Sans':'Black+Han+Sans','Do Hyeon':'Do+Hyeon','Jua':'Jua','Gasoek One':'Gasoek+One','Bagel Fat One':'Bagel+Fat+One','Gugi':'Gugi','Gowun Dodum':'Gowun+Dodum','Noto Sans KR':'Noto+Sans+KR:wght@400;700'};
@@ -2172,10 +2186,71 @@ $('sheetUrl').onchange=()=>{ state.sheetUrl=$('sheetUrl').value.trim(); save(); 
 function changeDate(nd){
   const od=state.date; if(!nd||nd===od) return;
   const carry=nd===addDays(od,7)?{rep:state.nextPrayer,off:state.nextOffering}:null;
+  /* 다음 주로 넘어갈 때 지난주 내용을 기억해 둠(저장 전 점검에서 "지난주와 같은 값"을 찾는 데 씀) */
+  if(carry) state.lastWeek={date:od,order:clone(state.order),memRef:state.memRef};
   state.date=nd;
   const cur=sheet&&sheet.rows[mdKey(nd)];
   if(!cur&&carry){ setOrderCell('대표기도',2,withSuffix(bareName(carry.rep),'렘넌트')); setOrderCell('헌금기도',2,withSuffix(bareName(carry.off),'교사')); }
   applySheet();
+}
+
+/* ───────── 새 주보 시작 ─────────
+   지난주 기록을 먼저 저장하고, 날짜를 한 주 넘긴 뒤 매주 바뀌는 칸(찬송·본문·제목·찬양·헌금, 암송, 영상 링크)을 비움.
+   신앙 고백·광고·축도·기도 줄의 가운데 칸, 사회·찬양인도·설교자, 소식·레이아웃은 그대로 둠 */
+const WEEKLY_SHARE=['shareWorshipUrl','shareChoirUrl','shareOrigDate','shareOrigTitle','shareOrigUrl'];
+function renderNewWeekHint(){ const el=$('newWeekHint'); if(!el) return; const nd=addDays(state.date,7);
+  el.innerHTML=`지금 ${esc(ymd(state.date))} 주보를 기록에 저장하고, 날짜를 <b>${esc(ymd(nd))}</b>로 넘긴 뒤 찬송·본문·제목·찬양·헌금찬송·암송·영상 링크를 비워요. 비운 칸은 <span style="color:#c2410c">분홍색</span>으로 보여요.`; }
+async function startNewWeek(){
+  const st=store();
+  if(st&&dirtySync){ status('지난주 주보를 기록에 저장하는 중…'); if(!(await syncSave(true))){ status('지난주 주보를 저장하지 못해서 멈췄어요. 저장 상태를 확인한 뒤 다시 눌러 주세요.'); return; } }
+  changeDate(addDays(state.date,7));
+  state.order.forEach(r=>{ if(!fixedMid(r[0])) r[1]=''; });
+  state.memRef=''; state.memText='';
+  WEEKLY_SHARE.forEach(k=>state[k]='');
+  delete state.bibleHold;
+  $('paste').value=''; $('pasteResult').hidden=true;
+  save(); fillWeekPanel(); renderAll(); renderNewWeekHint();
+  $('paste').scrollIntoView({block:'center',behavior:'smooth'});
+  status(`${ymd(state.date)} 주보를 시작했어요. 전달받은 내용을 붙여 넣어 주세요.`);
+}
+$('newWeek').onclick=e=>armTwice(e.currentTarget,'다음 주 주보 시작하기','한 번 더 누르면 다음 주로 넘어가요',startNewWeek);
+
+/* ───────── 저장 전 점검 ───────── */
+function weekIssues(){
+  const out=[], lw=state.lastWeek&&state.lastWeek.date===addDays(state.date,-7)?state.lastWeek:null;
+  for(const r of state.order){
+    const lab=String(r[0]).trim(); if(!lab) continue;
+    if(needCell(r,1)) out.push(`예배 순서 <b>${esc(lab)}</b> 내용이 비어 있어요.`);
+    if(needCell(r,2)) out.push(`<b>${esc(lab)}</b> 담당(기도자)이 비어 있어요.`);
+    if(lw&&!fixedMid(lab)&&String(r[1]).trim()){
+      const p=lw.order.find(x=>norm(x[0])===norm(lab));
+      if(p&&String(p[1]).trim()===String(r[1]).trim()) out.push(`<b>${esc(lab)}</b> 내용이 지난주와 같아요: ${esc(r[1])}`);
+    }
+  }
+  if(!String(state.preacher||'').trim()) out.push('설교자가 비어 있어요.');
+  if(!String(state.memRef||'').trim()) out.push('암송 구절이 비어 있어요.');
+  else{
+    if(!String(state.memText||'').trim()) out.push('암송 말씀 본문이 비어 있어요.');
+    if(lw&&lw.memRef&&refKey(lw.memRef)===refKey(state.memRef)) out.push(`암송 구절이 지난주와 같아요: ${esc(state.memRef)}`);
+  }
+  if(sheet&&!sheet.rows[mdKey(state.date)]) out.push(`구글 시트에 이번 주(${mdKey(state.date)}) 기도자가 없어요.`);
+  if(sheet&&!sheet.rows[mdKey(addDays(state.date,7))]&&!(String(state.nextPrayer||'').trim()&&String(state.nextOffering||'').trim())) out.push('다음 주 기도자가 비어 있어요.');
+  const over=document.querySelectorAll('.page .w-text.over').length;
+  if(over) out.push(`글이 상자를 넘친 곳이 ${over}군데 있어요(주보에 빨간 테두리).`);
+  return out;
+}
+/* 문제가 있으면 먼저 보여 주고, "그래도 저장"을 누르면 진행 */
+function checkThen(what,fn){
+  if(viewOnly) return fn();
+  checkOverflow();
+  const is=weekIssues(); if(!is.length) return fn();
+  const box=$('saveBox'); box.hidden=false; pushLayer('save');
+  box.innerHTML=`<div class="savecard" role="dialog" aria-label="저장 전 점검">
+    <div style="display:flex;justify-content:space-between;align-items:center"><b>${esc(what)} 전에 확인해 주세요</b><button type="button" class="icon-btn" id="saveClose" aria-label="닫기">×</button></div>
+    <ul class="checklist-issues">${is.map(t=>`<li>${t}</li>`).join('')}</ul>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn small" id="chkFix">고치러 가기</button><button type="button" class="btn primary small" id="chkGo">그래도 ${esc(what)}</button></div></div>`;
+  $('saveClose').onclick=$('chkFix').onclick=()=>{ closeSave(); if(!$('panelWeek')||$('panelWeek').hidden) showTab('week'); };
+  $('chkGo').onclick=()=>{ closeSave(); fn(); };
 }
 
 /* ───────── 전달받은 내용 붙여넣기 ───────── */
@@ -2242,23 +2317,34 @@ function applyPasteNow(){
   const done=[], unknown=[], notes=[];
   const dr=applyPasteDate(txt);
   if(dr){ if(dr.note) notes.push(dr.note); done.push(`날짜 ${ymd(dr.sun)}`); }
-  let memNew=false;
+  let memNew=false; pasteExtras=[];
   for(const raw of txt.split('\n')){
-    const pm=parseLine(raw); if(!pm) { const m=raw.match(/^\s*[^가-힣]*([가-힣 ]{1,10})\s*[:：]/); if(m) unknown.push(m[1].trim()); continue; }
+    const pm=parseLine(raw);
+    if(!pm){ const m=raw.match(/^\s*[^가-힣]*([가-힣 ]{1,10})\s*[:：]\s*(.*?)\s*$/); if(m&&m[2]) pasteExtras.push({label:m[1].trim(),val:m[2]}); else if(m) unknown.push(m[1].trim()); continue; }
     const {hit,val}=pm;
     const r=hit[1](val);
     if(r){ done.push(r); if(r==='암송 구절'&&!state.memText) memNew=true; }
-    else unknown.push(String(raw).split(/[:：]/)[0].replace(/^[^가-힣A-Za-z]+/,'').trim()+' (예배 순서에 이 줄이 없어요)');
+    else pasteExtras.push({label:String(raw).split(/[:：]/)[0].replace(/^[^가-힣A-Za-z]+/,'').trim(),val});
   }
+  /* 이미 순서에 같은 이름의 줄이 있으면(이전에 넣어 둔 경우) 그 줄에 바로 넣음 */
+  pasteExtras=pasteExtras.filter(x=>{ const col=/기도$/.test(norm(x.label))?2:1; if(setOrderCell(x.label,col,x.val)){ done.push(x.label); return false; } return true; });
   save(); fillWeekPanel(); renderAll();
   let h=`<div class="note"><div class="ok">주보에 넣었어요: ${esc(done.join(', '))||'없음'}</div>`;
   if(sheet){ const cur=sheet.rows[mdKey(state.date)]; h+=cur?`<div>대표기도·헌금기도는 시트에서 가져왔어요.</div>`:`<div class="warn">시트에 ${mdKey(state.date)}이 없어 기도자는 지난 주보 값을 썼어요.</div>`; }
   notes.forEach(n=>h+=`<div class="warn">${esc(n)}</div>`);
   if(memNew){ const u=verseUrl(state.memRef); h+=`<div class="warn">암송 구절 ${esc(state.memRef)}은 처음 쓰는 구절이에요.</div>${u?`<div><a href="${u}" target="_blank" rel="noopener">대한성서공회에서 ${esc(state.memRef)} 열기 ↗</a> 후 본문을 복사해 "암송 말씀 본문"에 붙여 넣어 주세요.</div>`:'<div>"암송 말씀 본문"에 본문을 붙여 넣어 주세요.</div>'}`; }
+  if(pasteExtras.length) h+=`<div class="warn" style="margin-top:6px">예배 순서에 없는 줄이 있어요. 넣을 줄을 눌러 주세요(광고 앞에 들어가요).</div><div style="display:grid;gap:4px;margin-top:4px">${pasteExtras.map((x,i)=>`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small" data-extra="${i}">+ 순서에 넣기</button><span><b>${esc(x.label)}</b> ${esc(x.val)}</span></div>`).join('')}</div>`;
   if(unknown.length) h+=`<div style="color:var(--muted)">넣지 못한 줄: ${esc(unknown.join(', '))}</div>`;
   $('pasteResult').innerHTML=h+'</div>'; $('pasteResult').hidden=false;
   if(memNew){ $('memText').focus(); $('memText').scrollIntoView({block:'center',behavior:'smooth'}); }
 }
+let pasteExtras=[];
+$('pasteResult').addEventListener('click',e=>{
+  const b=e.target.closest('[data-extra]'); if(!b||b.disabled) return; const x=pasteExtras[+b.dataset.extra]; if(!x) return;
+  const pray=/기도$/.test(norm(x.label)), row=[x.label,pray?'':x.val,pray?x.val:''];
+  if(!setOrderCell(x.label,pray?2:1,x.val)){ const at=state.order.findIndex(r=>norm(r[0])==='광고'); state.order.splice(at<0?state.order.length:at,0,row); }
+  b.disabled=true; b.textContent='넣었어요 ✓'; save(); renderOrderEditor(); renderPages();
+});
 $('clearPaste').onclick=()=>{ $('paste').value=''; $('pasteResult').hidden=true; };
 
 /* ───────── GitHub 저장 (PC·휴대폰 이어서 쓰기 + 주차별 기록) ───────── */

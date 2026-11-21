@@ -395,6 +395,7 @@ body.viewer .syncbadge{display:none!important}
     </div>
     <div class="side-body">
       <div id="fontWarn" class="note warn" hidden style="margin:0 0 12px"></div>
+      <div id="recReturnBox" class="note" hidden style="margin:0 0 12px;border:1px solid var(--accent)"></div>
       <div id="panelWeek">
         <fieldset>
           <legend>새 주보 시작</legend>
@@ -465,7 +466,7 @@ body.viewer .syncbadge{display:none!important}
           </div>
           <div id="orderNote" hidden></div>
           <div class="order" id="order"></div>
-          <div><button type="button" class="btn small" id="addRow">+ 순서 추가</button></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn small" id="addRow">+ 순서 추가</button><button type="button" class="btn small" id="orderUndoBtn" disabled>↶ 순서 되돌리기</button></div>
           <p class="hint">순서 · 내용(가운데) · 담당(오른쪽). 줄 오른쪽 ↑↓로 옮기고, ＋로 바로 아래에 줄을 끼워요.</p>
           <details id="presetBox"><summary style="cursor:pointer;font-size:13px;font-weight:600">특별 순서 저장 · 불러오기 <span id="presetCount" style="color:var(--muted);font-weight:400"></span></summary>
             <div style="display:grid;gap:8px;margin-top:8px">
@@ -651,6 +652,7 @@ body.viewer .syncbadge{display:none!important}
         <div class="pop right" id="savePop"></div>
       </details>
     </div>
+    <div id="viewerDraft" class="note" hidden style="margin:12px 16px 0;border:1px solid #f3b4c3"></div>
     <div class="pages" id="pages"></div>
   </main>
 </div>
@@ -1043,6 +1045,14 @@ function renderPages(){
   $('pages').innerHTML=state.layout.pages.map((pg,i)=>`<section><div class="plabel">${esc(pg.name)} <span>${esc(pg.sub||'')}</span></div><div class="scaler"><div class="page" data-page="${i}">${pg.ws.map(widgetEl).join('')}</div></div></section>`).join('')+thumbsHTML();
   fit(); drawSel(); checkOverflow(); fitThumbText(); syncThumbEdits(); if($('panelShare')&&!$('panelShare').hidden) renderShare();
   renderOrderNote(); /* 순서표 넘침은 그린 뒤에야 알 수 있음 */
+  updViewerDraft();
+}
+/* 보기 전용: 시트에 있는 건 편집하는 사람의 "지금 작업"이라, 다음 주 주보를 만드는 중이면 빈 칸이 보일 수 있음. 그럴 땐 알려 줌 */
+function updViewerDraft(){
+  const el=$('viewerDraft'); if(!el) return;
+  const draft=viewOnly&&state.order.some(r=>needCell(r,1));
+  el.hidden=!draft;
+  if(draft) el.innerHTML=`<b>${esc(ymd(state.date))} 주보는 아직 만드는 중이에요.</b> 비어 있는 칸이 있을 수 있어요. 완성된 뒤 다시 열어 주세요.`;
 }
 /* ───────── 썸네일 ───────── */
 function koDate(ds){ const [y,m,d]=String(ds).split('-').map(Number); return `${y}년 ${m}월 ${d}일`; }
@@ -1713,6 +1723,13 @@ $('order').addEventListener('input',e=>{ const t=e.target; if(t.dataset.i==null)
 /* ───────── 평소 순서 · 특별 주일 ─────────
    평소 순서 = 기본 레이아웃에 정한 순서(없으면 11/08 기록, 못 읽으면 STD_ORDER). 지금 순서의 줄 이름이 이것과 다르면 특별 순서로 보고 알려 줌 */
 let baseOrderCache=null, baseOrderAsked=false, orderUndo=null;
+/* 예배 순서 되돌리기: 줄 삭제·이동·끼우기·틀 바꾸기 전의 순서를 쌓아 둠(↶는 레이아웃만 되돌리므로 따로 둠). 글자 고치기는 입력칸의 Ctrl+Z로 */
+let orderHist=[];
+function pushOrder(msg){ orderHist.push({order:clone(state.order),msg}); if(orderHist.length>40) orderHist.shift(); }
+function undoOrder(){
+  const h=orderHist.pop(); if(!h) return;
+  state.order=h.order; orderUndo=null; applySheet(); save(); renderOrderEditor(); renderPages(); status(`예배 순서를 되돌렸어요(${h.msg}).`);
+}
 function baseOrderNow(){
   if(state.baseLayout&&state.baseLayout.order) return state.baseLayout.order;
   if(!baseOrderAsked){ baseOrderAsked=true; baseOrderTpl().then(t=>{ if(t){ baseOrderCache=t; renderOrderNote(); } }).catch(()=>{}); }
@@ -1738,12 +1755,13 @@ function renderOrderNote(){
   const link=orderLinkIssues(), li=[...link,...orderFit];
   if(li.length) h+=`<div class="note">${li.map(t=>`<div class="warn">${t}</div>`).join('')}${link.length?`<div style="color:var(--muted);font-size:12px;margin-top:4px">줄 이름을 위처럼 쓰거나 "설교 제목", "본문", "특송"처럼 비슷한 이름이면 알아봐요.</div>`:''}</div>`;
   el.innerHTML=h; el.hidden=!h;
-  const u=$('orderUndo'); if(u) u.onclick=()=>{ state.order=orderUndo.order; orderUndo=null; save(); renderOrderEditor(); renderPages(); status('예배 순서를 되돌렸어요.'); };
+  const u=$('orderUndo'); if(u) u.onclick=undoOrder;
+  const ub=$('orderUndoBtn'); if(ub){ ub.disabled=!orderHist.length; ub.title=orderHist.length?`되돌리기: ${orderHist[orderHist.length-1].msg}`:''; }
   const n=$('orderNormal'); if(n) n.onclick=()=>useOrderTpl(baseOrderNow(),'평소 순서로 바꿨어요.');
 }
 /* 순서 틀(평소 순서·저장한 특별 순서)로 바꿈. 이번 주 내용은 같은(비슷한) 이름 줄로 옮기고, 바로 앞 순서는 되돌리기로 남김 */
 function useOrderTpl(tpl,msg){
-  orderUndo={order:clone(state.order),msg};
+  pushOrder('순서 틀 바꾸기'); orderUndo={msg};
   state.order=mergeOrder(clone(tpl),state.order); applySheet(); save(); fillWeekPanel(); renderPages(); status(msg);
 }
 function renderPresets(){
@@ -1773,13 +1791,15 @@ function setChoirSong(v){
 $('choirSong').addEventListener('input',()=>{ setChoirSong($('choirSong').value.trim()); save(); renderOrderEditor(); renderPages(); });
 $('order').addEventListener('click',e=>{
   const b=e.target.closest('[data-del],[data-mv],[data-ins]'); if(!b||b.disabled) return; let focus=null;
-  if(b.dataset.del!=null) state.order.splice(+b.dataset.del,1);
-  else if(b.dataset.ins!=null){ const at=+b.dataset.ins+1; state.order.splice(at,0,['','','']); focus=`o${at}a`; }
-  else{ const i=+b.dataset.at, j=i+(+b.dataset.mv); if(j<0||j>=state.order.length) return; [state.order[i],state.order[j]]=[state.order[j],state.order[i]]; focus=`o${j}a`; }
+  const nm=i=>`"${String((state.order[i]||[])[0]||'').trim()||'빈 줄'}"`;
+  if(b.dataset.del!=null){ pushOrder(`${nm(+b.dataset.del)} 줄 지우기`); state.order.splice(+b.dataset.del,1); }
+  else if(b.dataset.ins!=null){ const at=+b.dataset.ins+1; pushOrder('줄 끼우기'); state.order.splice(at,0,['','','']); focus=`o${at}a`; }
+  else{ const i=+b.dataset.at, j=i+(+b.dataset.mv); if(j<0||j>=state.order.length) return; pushOrder(`${nm(i)} 줄 옮기기`); [state.order[i],state.order[j]]=[state.order[j],state.order[i]]; focus=`o${j}a`; }
   orderUndo=null; save(); renderOrderEditor(); renderPages();
   if(focus&&$(focus)){ if(b.dataset.ins!=null) $(focus).focus(); else { const nb=document.querySelector(`#order [data-mv="${b.dataset.mv}"][data-at="${focus.slice(1,-1)}"]`); if(nb&&!nb.disabled) nb.focus(); } }
 });
-$('addRow').onclick=()=>{ state.order.push(['','','']); orderUndo=null; save(); renderOrderEditor(); renderPages(); $('o'+(state.order.length-1)+'a').focus(); };
+$('orderUndoBtn').onclick=undoOrder;
+$('addRow').onclick=()=>{ pushOrder('줄 추가'); state.order.push(['','','']); orderUndo=null; save(); renderOrderEditor(); renderPages(); $('o'+(state.order.length-1)+'a').focus(); };
 
 $('bibleBook').innerHTML=BOOKS.map(([b])=>`<option>${b}</option>`).join('');
 /* 책·장을 바꿔도 바로 기준을 바꾸지 않고, "이 진도로 바꾸기"를 눌러야 바뀜(실수로 진도가 밀리지 않게) */
@@ -1898,7 +1918,7 @@ $('fixedList').addEventListener('input',e=>{
   w.p.text=e.target.value; rerenderWidget({pi:+pi,id}); save(); queueSnapshot();
 });
 
-function fillWeekPanel(){ SHARE_FIELDS.forEach(k=>{ const el=$(k); if(el) el.value=state[k]??''; }); renderFixed(); setTimeout(syncMemLink,0); bindFields(); renderOrderEditor(); renderTeams(); $('memRef').value=state.memRef; $('memText').value=state.memText; refreshVerseList(); memHint(); renderBaseNote(); renderNewWeekHint(); renderPresets(); }
+function fillWeekPanel(){ SHARE_FIELDS.forEach(k=>{ const el=$(k); if(el) el.value=state[k]??''; }); renderFixed(); setTimeout(syncMemLink,0); bindFields(); renderOrderEditor(); renderTeams(); $('memRef').value=state.memRef; $('memText').value=state.memText; refreshVerseList(); memHint(); renderBaseNote(); renderNewWeekHint(); renderPresets(); renderRecReturn(); }
 
 /* ───────── 레이아웃 파일 ───────── */
 function download(url,name){ const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
@@ -1976,7 +1996,7 @@ function mergeOrder(tpl,cur){
 async function applyBaseLayout(){
   const tpl=await baseOrderTpl();
   state.layout=clone(baseLayoutNow()); sel=null; selIds=new Set();
-  if(tpl){ state.order=mergeOrder(clone(tpl),state.order); applySheet(); }
+  if(tpl){ pushOrder('기본 레이아웃 적용'); state.order=mergeOrder(clone(tpl),state.order); applySheet(); }
   save(); fillWeekPanel(); renderAll(); showProps(); snapshot(); status('기본 레이아웃과 예배 순서로 바꿨어요.');
 }
 $('baseSet').onclick=e=>{ const b=e.currentTarget; state.baseLayout?armTwice(b,'지금 모양을 기본으로 정하기','한 번 더 누르면 기본을 바꿔요',setBaseLayout):setBaseLayout(); };
@@ -2244,9 +2264,20 @@ function sheetIds(url){ const id=(String(url).match(/\/d\/([a-zA-Z0-9_-]{20,})/)
 const mdKey=ds=>{ const [,m,d]=ds.split('-').map(Number); return `${m}/${d}`; };
 function cellText(c){
   if(!c) return '';
-  if(typeof c.v==='string'){ const m=c.v.match(/^Date\((\d+),(\d+),(\d+)/); if(m) return `${+m[2]+1}/${+m[3]}`; }
+  if(typeof c.v==='string'){ const m=c.v.match(/^Date\((\d+),(\d+),(\d+)/); if(m) return `${m[1]}-${+m[2]+1}-${+m[3]}`; }
   return String(c.f??c.v??'').trim();
 }
+/* 시트 날짜 칸 → 찾기 열쇠. 연도가 있으면 "Y:2026-11-22", 없으면 "11/22".
+   "2026-11-22", "2026.11.22", "2026년 11월 22일", "26.11.22", "11/22", "11.22", "11월 22일" 모두 알아봄 */
+function sheetDateKey(s){
+  s=String(s||''); const p=n=>String(+n).padStart(2,'0');
+  let m=s.match(/(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})/); if(m) return `Y:${m[1]}-${p(m[2])}-${p(m[3])}`;
+  m=s.match(/(?:^|\D)(\d{2})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})(?!\d)/); if(m) return `Y:20${m[1]}-${p(m[2])}-${p(m[3])}`;
+  m=s.match(/(\d{1,2})\s*[.\-/월]\s*(\d{1,2})/); if(m&&+m[1]>=1&&+m[1]<=12) return `${+m[1]}/${+m[2]}`;
+  return null;
+}
+/* 그 날짜의 시트 줄: 연도까지 맞는 줄을 먼저, 없으면 월/일만 적힌 줄 */
+const sheetRow=ds=>sheet?(sheet.rows['Y:'+ds]||sheet.rows[mdKey(ds)]||null):null;
 function loadSheet(){
   const {id,gid}=sheetIds(state.sheetUrl);
   if(!id){ $('sheetNow').innerHTML='<span class="warn">시트 링크가 올바르지 않아요.</span>'; return; }
@@ -2262,8 +2293,8 @@ function loadSheet(){
       const iD=idx('날짜'), iR=idx('대표기도'), iO=idx('헌금기도'), iN=idx('비고');
       if(iD<0||iR<0||iO<0) return fail('시트 첫 줄에 "날짜", "대표기도", "헌금기도" 칸이 있어야 해요.');
       const rows={};
-      for(const r of t.rows){ const c=r.c||[]; const d=cellText(c[iD]); const m=d.match(/(\d{1,2})[\/.월-]\s*(\d{1,2})/); if(!m) continue;
-        rows[`${+m[1]}/${+m[2]}`]={rep:cellText(c[iR]),off:cellText(c[iO]),note:iN>=0?cellText(c[iN]):''}; }
+      for(const r of t.rows){ const c=r.c||[]; const k=sheetDateKey(cellText(c[iD])); if(!k) continue;
+        rows[k]={rep:cellText(c[iR]),off:cellText(c[iO]),note:iN>=0?cellText(c[iN]):''}; }
       sheet={rows,at:new Date().toISOString()}; state.sheetCache=sheet; done();
       applySheet(); saveLocal(); renderAll(); fillWeekPanel();
     }catch(e){ fail('시트 내용을 읽는 중 문제가 생겼어요.'); }
@@ -2277,7 +2308,7 @@ function loadSheet(){
 /* 이번 주 · 다음 주 기도자를 시트에서 채움 */
 function applySheet(){
   if(!sheet) return false;
-  const cur=sheet.rows[mdKey(state.date)], nxt=sheet.rows[mdKey(addDays(state.date,7))];
+  const cur=sheetRow(state.date), nxt=sheetRow(addDays(state.date,7));
   if(cur){ setOrderCell('대표기도',2,withSuffix(cur.rep,'렘넌트')); setOrderCell('헌금기도',2,withSuffix(cur.off,'교사')); }
   if(nxt){ state.nextPrayer=withSuffix(nxt.rep,'렘넌트'); state.nextOffering=withSuffix(nxt.off,'선생님'); }
   syncSheetNote(); return !!(cur||nxt);
@@ -2285,7 +2316,7 @@ function applySheet(){
 function syncSheetNote(){
   if(!sheet){ return; }
   const ck=mdKey(state.date), nk=mdKey(addDays(state.date,7));
-  const cur=sheet.rows[ck], nxt=sheet.rows[nk];
+  const cur=sheetRow(state.date), nxt=sheetRow(addDays(state.date,7));
   const line=(lab,k,r)=>r?`<div><b>${lab}(${k})</b> 대표기도 ${esc(r.rep)||'<span class="warn">비어 있음</span>'} · 헌금기도 ${esc(r.off)||'<span class="warn">비어 있음</span>'}${r.note?`<br><span style="color:var(--muted)">비고: ${esc(r.note)}</span>`:''}</div>`:`<div><b>${lab}(${k})</b> <span class="warn">시트에 이 날짜가 없어요.</span></div>`;
   const when=sheet.at?new Date(sheet.at):null;
   $('sheetNow').innerHTML=line('이번 주',ck,cur)+line('다음 주',nk,nxt)+(when?`<div style="color:var(--muted);font-size:11.5px;margin-top:4px">${when.getMonth()+1}/${when.getDate()} ${String(when.getHours()).padStart(2,'0')}:${String(when.getMinutes()).padStart(2,'0')}에 불러옴</div>`:'');
@@ -2301,7 +2332,7 @@ function changeDate(nd){
   /* 다음 주로 넘어갈 때 지난주 내용을 기억해 둠(저장 전 점검에서 "지난주와 같은 값"을 찾는 데 씀) */
   if(carry) state.lastWeek={date:od,order:clone(state.order),memRef:state.memRef};
   state.date=nd;
-  const cur=sheet&&sheet.rows[mdKey(nd)];
+  const cur=sheetRow(nd);
   if(!cur&&carry){ setOrderCell('대표기도',2,withSuffix(bareName(carry.rep),'렘넌트')); setOrderCell('헌금기도',2,withSuffix(bareName(carry.off),'교사')); }
   applySheet();
 }
@@ -2319,13 +2350,24 @@ async function startNewWeek(){
   state.order.forEach(r=>{ if(!fixedMid(r[0])) r[1]=''; });
   state.memRef=''; state.memText='';
   WEEKLY_SHARE.forEach(k=>state[k]='');
-  delete state.bibleHold;
+  delete state.bibleHold; delete state.recReturn;
   $('paste').value=''; $('pasteResult').hidden=true;
   save(); fillWeekPanel(); renderAll(); renderNewWeekHint();
   $('paste').scrollIntoView({block:'center',behavior:'smooth'});
   status(`${ymd(state.date)} 주보를 시작했어요. ${isSpecialOrder()?'지난주는 평소와 다른 순서였어요. 예배 순서에서 "평소 순서로 되돌리기"를 확인해 주세요.':'전달받은 내용을 붙여 넣어 주세요.'}`);
 }
-$('newWeek').onclick=e=>armTwice(e.currentTarget,'다음 주 주보 시작하기','한 번 더 누르면 다음 주로 넘어가요',startNewWeek);
+$('newWeek').onclick=e=>{
+  if(store()) return armTwice(e.currentTarget,'다음 주 주보 시작하기','한 번 더 누르면 다음 주로 넘어가요',startNewWeek);
+  /* 시트·GitHub 연결이 없으면 지난주가 어디에도 남지 않으므로 먼저 물어봄 */
+  const box=$('saveBox'); box.hidden=false; pushLayer('save');
+  box.innerHTML=`<div class="savecard" role="dialog" aria-label="다음 주 주보 시작">
+    <div style="display:flex;justify-content:space-between;align-items:center"><b>지난주 기록이 남지 않아요</b><button type="button" class="icon-btn" id="saveClose" aria-label="닫기">×</button></div>
+    <p style="margin:0;font-size:14px;line-height:1.6">이 기기는 구글 시트에 연결되어 있지 않아서, 다음 주로 넘어가면 ${esc(ymd(state.date))} 주보 내용(찬송·제목·암송 등)이 기록 없이 지워져요.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn primary small" id="nwExport">파일로 내보내고 시작</button><button type="button" class="btn small" id="nwGo">그냥 시작</button><button type="button" class="btn small" id="nwCancel">취소</button></div></div>`;
+  $('saveClose').onclick=$('nwCancel').onclick=()=>closeSave();
+  $('nwExport').onclick=()=>{ $('fileExport').onclick(); closeSave(); startNewWeek(); };
+  $('nwGo').onclick=()=>{ closeSave(); startNewWeek(); };
+};
 
 /* ───────── 저장 전 점검 ───────── */
 function weekIssues(){
@@ -2346,8 +2388,8 @@ function weekIssues(){
     if(!String(state.memText||'').trim()) out.push('암송 말씀 본문이 비어 있어요.');
     if(lw&&lw.memRef&&refKey(lw.memRef)===refKey(state.memRef)) out.push(`암송 구절이 지난주와 같아요: ${esc(state.memRef)}`);
   }
-  if(sheet&&!sheet.rows[mdKey(state.date)]) out.push(`구글 시트에 이번 주(${mdKey(state.date)}) 기도자가 없어요.`);
-  if(sheet&&!sheet.rows[mdKey(addDays(state.date,7))]&&!(String(state.nextPrayer||'').trim()&&String(state.nextOffering||'').trim())) out.push('다음 주 기도자가 비어 있어요.');
+  if(sheet&&!sheetRow(state.date)) out.push(`구글 시트에 이번 주(${mdKey(state.date)}) 기도자가 없어요.`);
+  if(sheet&&!sheetRow(addDays(state.date,7))&&!(String(state.nextPrayer||'').trim()&&String(state.nextOffering||'').trim())) out.push('다음 주 기도자가 비어 있어요.');
   out.push(...orderFit);
   const over=document.querySelectorAll('.page .w-text.over').length;
   if(over) out.push(`글이 상자를 넘친 곳이 ${over}군데 있어요(디자인 편집에서 주황 점선으로 보여요).`);
@@ -2444,7 +2486,7 @@ function applyPasteNow(){
   pasteExtras=pasteExtras.filter(x=>{ const col=/기도$/.test(norm(x.label))?2:1; if(setOrderCell(x.label,col,x.val)){ done.push(x.label); return false; } return true; });
   save(); fillWeekPanel(); renderAll();
   let h=`<div class="note"><div class="ok">주보에 넣었어요: ${esc(done.join(', '))||'없음'}</div>`;
-  if(sheet){ const cur=sheet.rows[mdKey(state.date)]; h+=cur?`<div>대표기도·헌금기도는 시트에서 가져왔어요.</div>`:`<div class="warn">시트에 ${mdKey(state.date)}이 없어 기도자는 지난 주보 값을 썼어요.</div>`; }
+  if(sheet){ const cur=sheetRow(state.date); h+=cur?`<div>대표기도·헌금기도는 시트에서 가져왔어요.</div>`:`<div class="warn">시트에 ${mdKey(state.date)}이 없어 기도자는 지난 주보 값을 썼어요.</div>`; }
   notes.forEach(n=>h+=`<div class="warn">${esc(n)}</div>`);
   if(memNew){ const u=verseUrl(state.memRef); h+=`<div class="warn">암송 구절 ${esc(state.memRef)}은 처음 쓰는 구절이에요.</div>${u?`<div><a href="${u}" target="_blank" rel="noopener">대한성서공회에서 ${esc(state.memRef)} 열기 ↗</a> 후 본문을 복사해 "암송 말씀 본문"에 붙여 넣어 주세요.</div>`:'<div>"암송 말씀 본문"에 본문을 붙여 넣어 주세요.</div>'}`; }
   if(pasteExtras.length) h+=`<div class="warn" style="margin-top:6px">예배 순서에 없는 줄이 있어요. 넣을 줄을 눌러 주세요(광고 앞에 들어가요).</div><div style="display:grid;gap:4px;margin-top:4px">${pasteExtras.map((x,i)=>`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small" data-extra="${i}">+ 순서에 넣기</button><span><b>${esc(x.label)}</b> ${esc(x.val)}</span></div>`).join('')}</div>`;
@@ -2455,7 +2497,7 @@ function applyPasteNow(){
 let pasteExtras=[];
 $('pasteResult').addEventListener('click',e=>{
   const b=e.target.closest('[data-extra]'); if(!b||b.disabled) return; const x=pasteExtras[+b.dataset.extra]; if(!x) return;
-  const pray=/기도$/.test(norm(x.label)), row=[x.label,pray?'':x.val,pray?x.val:'']; orderUndo=null;
+  const pray=/기도$/.test(norm(x.label)), row=[x.label,pray?'':x.val,pray?x.val:'']; orderUndo=null; pushOrder(`"${x.label}" 줄 넣기`);
   if(!setOrderCell(x.label,pray?2:1,x.val)){ const at=state.order.findIndex(r=>norm(r[0])==='광고'); state.order.splice(at<0?state.order.length:at,0,row); }
   b.disabled=true; b.textContent='넣었어요 ✓'; save(); renderOrderEditor(); renderPages();
 });
@@ -2638,19 +2680,39 @@ const REC_KEYS=['date','host','praise','order','bible','memRef','memText','nextP
 $('recList').addEventListener('click',async e=>{
   const b=e.target.closest('[data-rec]'); if(!b) return;
   if(b.dataset.armed!=='1'){ b.dataset.armed='1'; b.textContent='한 번 더 누르면 지금 내용을 바꿔요'; setTimeout(()=>{ b.dataset.armed=''; b.textContent='불러오기'; },3500); return; }
+  const d=b.dataset.rec, from=state.date;
+  /* 지금 작업을 먼저 기록에 저장해 둬야 "돌아가기"로 되살릴 수 있음 */
+  if(dirtySync){ status('지금 작업을 먼저 저장하는 중…'); if(!(await syncSave(true))){ status('지금 작업을 저장하지 못해서 불러오지 않았어요. 저장 상태를 확인해 주세요.'); return; } }
+  if(await loadRecordDate(d,false)&&d!==from&&!(state.recReturn&&state.recReturn.date)){ state.recReturn={date:from}; save(); }
+  renderRecReturn();
+});
+/* 기록 하나를 지금 주보로 불러옴. back=true는 "작업으로 돌아가기"(성경 읽기는 자동 진도 그대로) */
+async function loadRecordDate(d,back){
   try{
-    const rec=await store().getRecord(b.dataset.rec); if(!rec) return;
+    const rec=await store().getRecord(d); if(!rec){ status('그 주 기록을 찾지 못했어요.'); return false; }
     REC_KEYS.forEach(k=>{ if(rec[k]!==undefined) state[k]=JSON.parse(JSON.stringify(rec[k])); });
     /* 성경 읽기는 자동 진도로 다시 계산하지 않고 그 주 기록 그대로(날짜를 바꾸면 다시 자동 진도) */
-    if(typeof rec.bible==='string'&&rec.bible.trim()) state.bibleHold={date:state.date,text:rec.bible}; else delete state.bibleHold;
+    if(!back&&typeof rec.bible==='string'&&rec.bible.trim()) state.bibleHold={date:state.date,text:rec.bible}; else delete state.bibleHold;
     if(state.memRef&&state.memText) state.verseLib[refKey(state.memRef)]=state.memText;
     const hasLay=rec.layout&&Array.isArray(rec.layout.pages);
     if(hasLay){ state.layout=restoreRecLayout(rec.layout); sel=null; selIds=new Set(); }
     if(rec.thumbEdits) state.thumbEdits=clone(rec.thumbEdits);
+    orderHist=[]; orderUndo=null;
     save(); fillWeekPanel(); renderAll(); showProps(); snapshot(); loadRecords();
-    status(hasLay?`${rec.date} 주보를 그 주 레이아웃 그대로 불러왔어요. ↶ 취소로 되돌릴 수 있어요.`:`${rec.date} 주보 내용을 불러왔어요. 이 기록은 레이아웃을 저장하기 전에 만든 것이라 소식·배치는 지금 것을 그대로 써요.`);
-  }catch(err){ status('기록을 불러오지 못했어요.'); }
-});
+    status(back?`${ymd(rec.date)} 작업으로 돌아왔어요.`:hasLay?`${rec.date} 주보를 그 주 레이아웃 그대로 불러왔어요.`:`${rec.date} 주보 내용을 불러왔어요. 이 기록은 레이아웃을 저장하기 전에 만든 것이라 소식·배치는 지금 것을 그대로 써요.`);
+    return true;
+  }catch(err){ status('기록을 불러오지 못했어요.'); return false; }
+}
+/* 지난 주보를 보는 중이면 어느 탭에서든 "작업으로 돌아가기"를 보여 줌 */
+function renderRecReturn(){
+  const el=$('recReturnBox'), r=state.recReturn; if(!el) return;
+  const on=!viewOnly&&r&&r.date&&r.date!==state.date;
+  if(!on&&r&&r.date===state.date){ delete state.recReturn; saveLocal(); }
+  el.hidden=!on; if(!on){ el.innerHTML=''; return; }
+  el.innerHTML=`<div><b>지난 주보(${esc(ymd(state.date))})를 보고 있어요.</b> 하던 작업은 기록에 저장해 두었어요.</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn primary small" id="recBack">${esc(ymd(r.date))} 작업으로 돌아가기</button><button type="button" class="btn small" id="recStay">이대로 쓰기</button></div>`;
+  $('recBack').onclick=async()=>{ if(dirtySync&&!(await syncSave(true))){ status('지금 내용을 저장하지 못했어요. 저장 상태를 확인해 주세요.'); return; } if(await loadRecordDate(r.date,true)){ delete state.recReturn; save(); renderRecReturn(); } };
+  $('recStay').onclick=()=>{ delete state.recReturn; save(); renderRecReturn(); };
+}
 $('recCsv').onclick=async()=>{
   if(!records.length) await loadRecords(); if(!records.length) return;
   status('기록을 모으는 중…');
@@ -2774,7 +2836,7 @@ if(!state.designV12){
 async function enterViewer(note){
   viewOnly=true; if(designMode) setDesign(false); closePreview(); document.body.classList.add('viewer');
   requestAnimationFrame(()=>{ fit(); checkOverflow(); });
-  await pullViewer(note);
+  await pullViewer(note); updViewerDraft();
 }
 async function pullViewer(note){
   try{

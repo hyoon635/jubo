@@ -757,7 +757,16 @@ function defaultLayout(s={}){
 /* ───────── 상태 불러오기 ───────── */
 let state;
 try{ state=Object.assign(clone(WEEK),JSON.parse(localStorage.getItem(KEY)||'{}')); }catch(e){ state=clone(WEEK); }
+/* 11/08에 성경 읽기 기준이 "예레미야 1장"으로 잘못 바뀌어 진도가 2주 밀렸던 것을 원래 기준(10/04 이사야 46장)으로 되돌림.
+   다른 기기에서 받은 저장본에도 남아 있을 수 있어서 applyRemoteState에서도 부름. 고쳤으면 true */
+let bibleFixedAtBoot=false;
+function fixBibleBase(){
+  const b=state.bibleBase;
+  if(state.bibleFix1||!b||b.date!=='2026-11-08'||b.book!=='예레미야'||b.ch!==1) return false;
+  state.bibleBase=clone(WEEK.bibleBase); state.bibleFix1=true; return true;
+}
 (function migrate(){
+  if(fixBibleBase()){ state.updatedAt=Date.now(); bibleFixedAtBoot=true; }
   if(state.memory && !state.memMigrated){
     const ls=String(state.memory).split('\n'); const m=(ls[ls.length-1]||'').match(/^\s*\[(.+)\]\s*$/);
     if(m){ state.memRef=m[1]; state.memText=ls.slice(0,-1).join('\n'); }
@@ -824,7 +833,7 @@ try{ state=Object.assign(clone(WEEK),JSON.parse(localStorage.getItem(KEY)||'{}')
     state.designV10=true; }
   ['meetings','applies','branches','missions','staffL','staffR','goal','prayers','place','coverVerse'].forEach(k=>delete state[k]);
 })();
-let saveTimer=null, dirtySync=false, booting=true;
+let saveTimer=null, dirtySync=bibleFixedAtBoot, booting=true; /* 시작할 때 성경 읽기 기준을 고쳤으면 시트에도 올림 */
 /* 보기 전용일 땐 시트에서 받은 주보를 보여 주기만 하고 이 기기에 저장하지 않음(이 기기의 작업 내용을 덮지 않게) */
 let viewOnly=false;
 function save(){ if(viewOnly) return; if(!booting){ state.updatedAt=Date.now(); dirtySync=true; updSyncBadge(); } saveLocal(); }
@@ -2362,9 +2371,11 @@ function applyRemoteState(remote){
   const keepFonts=state.fontRoles;
   state=Object.assign(clone(WEEK),remote); if(!state.fontRoles) state.fontRoles=keepFonts; state.syncBase=remote.updatedAt||0; dirtySync=false;
   if(sheet){ state.sheetCache=sheet; applySheet(); } /* 저장본엔 시트 내용이 없어서 다시 채움 */
+  const bibleFixed=fixBibleBase();
   try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){}
   sel=null; fillWeekPanel(); applyFonts(); renderAll(); showProps(); snapshot();
   pendingRemote=null; syncErr=''; lastSyncAt=remote.updatedAt||0; updSyncBadge();
+  if(bibleFixed) save(); /* 고친 기준을 다시 올려 다른 기기도 맞춤 */
 }
 const fieldBusy=()=>designMode||editing||/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'');
 async function syncCheck(){
@@ -2544,7 +2555,7 @@ async function enterViewer(note){
 async function pullViewer(note){
   try{
     const s=(await gsCall('view')).state;
-    if(s&&s.updatedAt!==state.updatedAt){ state=Object.assign(clone(WEEK),s); sel=null; applyFonts(); renderAll(); }
+    if(s&&s.updatedAt!==state.updatedAt){ state=Object.assign(clone(WEEK),s); fixBibleBase(); sel=null; applyFonts(); renderAll(); }
     status(note||'');
   }catch(e){ status(note||'최신 주보를 불러오지 못해서 이 기기에 있던 내용을 보여 줘요.'); }
 }

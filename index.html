@@ -467,6 +467,13 @@ body.viewer .syncbadge{display:none!important}
           <div class="order" id="order"></div>
           <div><button type="button" class="btn small" id="addRow">+ 순서 추가</button></div>
           <p class="hint">순서 · 내용(가운데) · 담당(오른쪽). 줄 오른쪽 ↑↓로 옮기고, ＋로 바로 아래에 줄을 끼워요.</p>
+          <details id="presetBox"><summary style="cursor:pointer;font-size:13px;font-weight:600">특별 순서 저장 · 불러오기 <span id="presetCount" style="color:var(--muted);font-weight:400"></span></summary>
+            <div style="display:grid;gap:8px;margin-top:8px">
+              <div id="presetList" class="order"></div>
+              <div style="display:flex;gap:6px"><input id="presetName" placeholder="이름 (예: 성탄절 연합예배)" autocomplete="off" style="flex:1;min-width:0"><button type="button" class="btn small" id="presetSave">지금 순서 저장</button></div>
+              <p class="hint" style="margin:0">성탄절·부활절·연합예배처럼 해마다 돌아오는 순서를 저장해 두면 다음에 골라 쓸 수 있어요. 불러오면 줄 구성과 담당이 바뀌고, 같은 이름의 줄에 넣은 이번 주 내용은 그대로 옮겨요.</p>
+            </div>
+          </details>
         </fieldset>
 
         <fieldset>
@@ -1035,6 +1042,7 @@ function renderPages(){
   TK=tokens();
   $('pages').innerHTML=state.layout.pages.map((pg,i)=>`<section><div class="plabel">${esc(pg.name)} <span>${esc(pg.sub||'')}</span></div><div class="scaler"><div class="page" data-page="${i}">${pg.ws.map(widgetEl).join('')}</div></div></section>`).join('')+thumbsHTML();
   fit(); drawSel(); checkOverflow(); fitThumbText(); syncThumbEdits(); if($('panelShare')&&!$('panelShare').hidden) renderShare();
+  renderOrderNote(); /* 순서표 넘침은 그린 뒤에야 알 수 있음 */
 }
 /* ───────── 썸네일 ───────── */
 function koDate(ds){ const [y,m,d]=String(ds).split('-').map(Number); return `${y}년 ${m}월 ${d}일`; }
@@ -1244,6 +1252,25 @@ function checkOverflow(){
     const tx=el.firstElementChild; if(!tx) return;
     el.classList.toggle('over',tx.scrollHeight>el.clientHeight+3||tx.scrollWidth>el.clientWidth+3);
   });
+  orderFit=checkOrderFit();
+}
+/* 예배 순서표: 줄 간격은 상자 높이를 줄 수로 나눠서 정해지므로, 특별 주일처럼 줄이 많으면 빽빽해지거나 넘침.
+   글이 길어 칸 안에서 두 줄로 넘어간 줄도 찾음 */
+let orderFit=[];
+function checkOrderFit(){
+  const out=[];
+  document.querySelectorAll('.page .w-order').forEach(el=>{
+    const rows=el.querySelector('.rows'); if(!rows) return;
+    const fs=parseFloat(getComputedStyle(rows).fontSize)||12, rs=[...rows.children];
+    const over=rows.scrollHeight>rows.clientHeight+2;
+    const crowded=!over&&rs.some(r=>r.offsetHeight<fs*1.6);
+    const wrapped=rs.filter(r=>[...r.children].some(s=>s.textContent.trim()&&s.offsetHeight>fs*1.6)).map(r=>r.children[0].textContent.trim()||'(이름 없는 줄)');
+    el.classList.toggle('over',over||wrapped.length>0);
+    if(over) out.push(`예배 순서표가 ${rs.length}줄이라 상자를 넘쳐요. 디자인 편집에서 순서표 상자를 키우거나 글자 크기를 줄여 주세요.`);
+    else if(crowded) out.push(`예배 순서표가 ${rs.length}줄이라 줄 간격이 아주 좁아요. 디자인 편집에서 상자를 키우거나 글자 크기를 줄이면 읽기 편해요.`);
+    if(wrapped.length) out.push(`예배 순서표에서 글이 길어 두 줄로 넘어간 줄: <b>${esc(wrapped.join(', '))}</b>. 내용을 줄이거나 순서표의 왼쪽·오른쪽 칸 너비를 조절해 주세요.`);
+  });
+  return out;
 }
 function drawSel(guides){
   document.querySelectorAll('.sel,.guide').forEach(n=>n.remove());
@@ -1705,14 +1732,37 @@ function orderLinkIssues(){
 }
 function renderOrderNote(){
   const el=$('orderNote'); if(!el) return; let h='';
-  if(orderUndo) h+=`<div class="note"><div class="ok">평소 순서로 바꿨어요.</div><div style="margin-top:6px"><button type="button" class="btn small" id="orderUndo">되돌리기</button></div></div>`;
-  else if(isSpecialOrder()) h+=`<div class="note"><b>평소와 다른 순서예요.</b> 특별 주일이 아니라면 평소 순서로 되돌려 주세요. 같은 이름의 줄에 넣은 이번 주 내용은 그대로 옮겨요.<div style="margin-top:6px"><button type="button" class="btn small" id="orderNormal">평소 순서로 되돌리기</button></div></div>`;
-  const li=orderLinkIssues();
-  if(li.length) h+=`<div class="note">${li.map(t=>`<div class="warn">${t}</div>`).join('')}<div style="color:var(--muted);font-size:12px;margin-top:4px">줄 이름을 위처럼 쓰거나 "설교 제목", "본문", "특송"처럼 비슷한 이름이면 알아봐요.</div></div>`;
+  const pm=(state.orderPresets||[]).find(p=>orderLabels(p.order)===orderLabels(state.order));
+  if(orderUndo) h+=`<div class="note"><div class="ok">${esc(orderUndo.msg)}</div><div style="margin-top:6px"><button type="button" class="btn small" id="orderUndo">되돌리기</button></div></div>`;
+  else if(isSpecialOrder()) h+=`<div class="note"><b>${pm?`저장해 둔 "${esc(pm.name)}" 순서예요.`:'평소와 다른 순서예요.'}</b> 특별 주일이 아니라면 평소 순서로 되돌려 주세요. 같은 이름의 줄에 넣은 이번 주 내용은 그대로 옮겨요.<div style="margin-top:6px"><button type="button" class="btn small" id="orderNormal">평소 순서로 되돌리기</button></div></div>`;
+  const link=orderLinkIssues(), li=[...link,...orderFit];
+  if(li.length) h+=`<div class="note">${li.map(t=>`<div class="warn">${t}</div>`).join('')}${link.length?`<div style="color:var(--muted);font-size:12px;margin-top:4px">줄 이름을 위처럼 쓰거나 "설교 제목", "본문", "특송"처럼 비슷한 이름이면 알아봐요.</div>`:''}</div>`;
   el.innerHTML=h; el.hidden=!h;
-  const u=$('orderUndo'); if(u) u.onclick=()=>{ state.order=orderUndo; orderUndo=null; save(); renderOrderEditor(); renderPages(); status('예배 순서를 되돌렸어요.'); };
-  const n=$('orderNormal'); if(n) n.onclick=()=>{ orderUndo=clone(state.order); state.order=mergeOrder(clone(baseOrderNow()),state.order); applySheet(); save(); renderOrderEditor(); renderPages(); status('평소 예배 순서로 바꿨어요.'); };
+  const u=$('orderUndo'); if(u) u.onclick=()=>{ state.order=orderUndo.order; orderUndo=null; save(); renderOrderEditor(); renderPages(); status('예배 순서를 되돌렸어요.'); };
+  const n=$('orderNormal'); if(n) n.onclick=()=>useOrderTpl(baseOrderNow(),'평소 순서로 바꿨어요.');
 }
+/* 순서 틀(평소 순서·저장한 특별 순서)로 바꿈. 이번 주 내용은 같은(비슷한) 이름 줄로 옮기고, 바로 앞 순서는 되돌리기로 남김 */
+function useOrderTpl(tpl,msg){
+  orderUndo={order:clone(state.order),msg};
+  state.order=mergeOrder(clone(tpl),state.order); applySheet(); save(); fillWeekPanel(); renderPages(); status(msg);
+}
+function renderPresets(){
+  const ps=state.orderPresets||[];
+  $('presetCount').textContent=ps.length?`(${ps.length})`:'';
+  $('presetList').innerHTML=ps.length?ps.map((p,i)=>`<div class="orow" style="grid-template-columns:1fr auto auto"><span><b>${esc(p.name)}</b><br><span style="color:var(--muted);font-size:12px">${esc(p.order.map(r=>r[0]).filter(Boolean).join(' · '))}</span></span><button type="button" class="btn small" data-pload="${i}">불러오기</button><button type="button" class="icon-btn" data-pdel="${i}" aria-label="${esc(p.name)} 지우기" title="지우기">×</button></div>`).join('')
+    :'<p class="hint" style="margin:0">아직 저장한 특별 순서가 없어요.</p>';
+}
+$('presetSave').onclick=()=>{
+  const name=$('presetName').value.trim(); if(!name){ $('presetName').focus(); status('저장할 순서의 이름을 적어 주세요.'); return; }
+  const ps=state.orderPresets=state.orderPresets||[], at=ps.findIndex(p=>p.name===name), item={name,order:clone(state.order),at:Date.now()};
+  if(at>=0) ps[at]=item; else ps.push(item);
+  $('presetName').value=''; save(); renderPresets(); renderOrderNote(); status(at>=0?`"${name}" 순서를 지금 순서로 바꿔 저장했어요.`:`"${name}" 순서를 저장했어요.`);
+};
+$('presetList').addEventListener('click',e=>{
+  const ps=state.orderPresets||[], l=e.target.closest('[data-pload]'), d=e.target.closest('[data-pdel]');
+  if(l){ const p=ps[+l.dataset.pload]; if(p) useOrderTpl(p.order,`"${p.name}" 순서로 바꿨어요.`); }
+  else if(d){ const p=ps[+d.dataset.pdel]; if(!p) return; armTwice(d,'×','한 번 더 누르면 지워요',()=>{ ps.splice(ps.indexOf(p),1); save(); renderPresets(); renderOrderNote(); status(`"${p.name}" 순서를 지웠어요.`); }); }
+});
 /* 성가대곡 칸 = 예배 순서 "찬양" 줄의 내용. 줄이 없으면 "말씀 제목" 앞에 새로 만듦 */
 function syncChoirSong(){ const el=$('choirSong'); if(el&&document.activeElement!==el) el.value=getOrderCell('찬양',1)||''; }
 function setChoirSong(v){
@@ -1848,7 +1898,7 @@ $('fixedList').addEventListener('input',e=>{
   w.p.text=e.target.value; rerenderWidget({pi:+pi,id}); save(); queueSnapshot();
 });
 
-function fillWeekPanel(){ SHARE_FIELDS.forEach(k=>{ const el=$(k); if(el) el.value=state[k]??''; }); renderFixed(); setTimeout(syncMemLink,0); bindFields(); renderOrderEditor(); renderTeams(); $('memRef').value=state.memRef; $('memText').value=state.memText; refreshVerseList(); memHint(); renderBaseNote(); renderNewWeekHint(); }
+function fillWeekPanel(){ SHARE_FIELDS.forEach(k=>{ const el=$(k); if(el) el.value=state[k]??''; }); renderFixed(); setTimeout(syncMemLink,0); bindFields(); renderOrderEditor(); renderTeams(); $('memRef').value=state.memRef; $('memText').value=state.memText; refreshVerseList(); memHint(); renderBaseNote(); renderNewWeekHint(); renderPresets(); }
 
 /* ───────── 레이아웃 파일 ───────── */
 function download(url,name){ const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
@@ -2298,8 +2348,9 @@ function weekIssues(){
   }
   if(sheet&&!sheet.rows[mdKey(state.date)]) out.push(`구글 시트에 이번 주(${mdKey(state.date)}) 기도자가 없어요.`);
   if(sheet&&!sheet.rows[mdKey(addDays(state.date,7))]&&!(String(state.nextPrayer||'').trim()&&String(state.nextOffering||'').trim())) out.push('다음 주 기도자가 비어 있어요.');
+  out.push(...orderFit);
   const over=document.querySelectorAll('.page .w-text.over').length;
-  if(over) out.push(`글이 상자를 넘친 곳이 ${over}군데 있어요(주보에 빨간 테두리).`);
+  if(over) out.push(`글이 상자를 넘친 곳이 ${over}군데 있어요(디자인 편집에서 주황 점선으로 보여요).`);
   return out;
 }
 /* 문제가 있으면 먼저 보여 주고, "그래도 저장"을 누르면 진행 */

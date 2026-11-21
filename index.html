@@ -426,8 +426,12 @@ body.viewer .syncbadge{display:none!important}
             <label>이번 주 시작 책 <select id="bibleBook"></select></label>
             <label>시작 장 <input type="number" id="bibleCh" min="1"></label>
           </div>
+          <div id="biblePendBox" class="note" hidden style="border-color:var(--accent)">
+            <div id="biblePendText"></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn primary small" id="biblePendOk">이 진도로 바꾸기</button><button type="button" class="btn small" id="biblePendCancel">취소</button></div>
+          </div>
           <div id="bibleCompare" class="note"></div>
-          <p class="hint" id="bibleAutoHint">날짜를 다음 주로 바꾸면 7장씩 이어집니다. 진도가 달라지면 시작 책·장만 고쳐 주세요.</p>
+          <p class="hint" id="bibleAutoHint">날짜를 다음 주로 바꾸면 7장씩 이어집니다. 진도가 달라지면 시작 책·장을 고른 뒤 "이 진도로 바꾸기"를 눌러 주세요.</p>
           <label id="bibleManual">성경 읽기 <input id="bible"></label>
           <label>암송 구절 <input id="memRef" list="verseList" placeholder="예: 마 16:16" autocomplete="off"></label>
           <datalist id="verseList"></datalist>
@@ -851,20 +855,27 @@ const toIdx=(book,ch)=>{ let n=0; for(const [b,c] of BOOKS){ if(b===book) return
 const fromIdx=i=>{ i=((i%TOTAL_CH)+TOTAL_CH)%TOTAL_CH; for(const [b,c] of BOOKS){ if(i<c) return [b,i+1]; i-=c; } };
 const dayNum=s=>{ const [y,m,d]=String(s).split('-').map(Number); return Date.UTC(y,m-1,d)/864e5; };
 const autoStart=(off=0)=>toIdx(state.bibleBase.book,state.bibleBase.ch)+(Math.round((dayNum(state.date)-dayNum(state.bibleBase.date))/7)+off)*PER_WEEK;
-function bibleRange(off=0){
-  const parts=[]; let i=autoStart(off), left=PER_WEEK;
+function bibleRange(off=0,start){
+  const parts=[]; let i=start===undefined?autoStart(off):start, left=PER_WEEK;
   while(left>0){ const [b,ch]=fromIdx(i); const end=Math.min(chOf(b),ch+left-1); parts.push(ch===end?`${b} ${ch}장`:`${b} ${ch}~${end}장`); i+=end-ch+1; left-=end-ch+1; }
   return parts.join(', ');
 }
+let biblePend=null; /* 책·장을 골랐지만 아직 "바꾸기"를 안 누른 것 */
 const md=ds=>{ const [,m,d]=ds.split('-').map(Number); return `${m}.${d}`; };
 function addDays(ds,n){ return new Date((dayNum(ds)+n)*864e5).toISOString().slice(0,10); }
 function syncBible(){
   $('bibleAuto').checked=!!state.bibleAuto;
   $('bibleAutoBox').hidden=$('bibleAutoHint').hidden=$('bibleCompare').hidden=!state.bibleAuto;
   $('bibleManual').hidden=!!state.bibleAuto;
+  if(!state.bibleAuto) biblePend=null;
+  $('biblePendBox').hidden=!biblePend;
   if(state.bibleAuto){
     const [b,ch]=fromIdx(autoStart());
-    $('bibleBook').value=b; $('bibleCh').max=chOf(b); if(document.activeElement!==$('bibleCh')) $('bibleCh').value=ch;
+    if(biblePend){ /* 고르는 중엔 고른 값을 그대로 두고 바꾸면 어떻게 되는지만 보여 줌 */
+      $('bibleBook').value=biblePend.book; $('bibleCh').max=chOf(biblePend.book);
+      if(document.activeElement!==$('bibleCh')) $('bibleCh').value=biblePend.ch;
+      $('biblePendText').innerHTML=`<b>아직 안 바뀌었어요.</b> 바꾸면 이번 주(${md(state.date)}) 주보가 <b>${esc(bibleRange(0,toIdx(biblePend.book,biblePend.ch)))}</b>이 되고, 지난 주보들과 다음 주부터도 모두 이 진도에 맞춰 달라져요.<br><span style="color:var(--muted)">지금: ${esc(bibleRange())}</span>`;
+    }else{ $('bibleBook').value=b; $('bibleCh').max=chOf(b); if(document.activeElement!==$('bibleCh')) $('bibleCh').value=ch; }
     state.bible=bibleRange(); $('bible').value=state.bible;
     $('bibleCompare').innerHTML=`<div><span style="color:var(--muted)">지난주(${md(addDays(state.date,-7))}) 주보</span> &nbsp;${esc(bibleRange(-1))}</div><div><b style="color:var(--accent)">이번 주(${md(state.date)}) 주보</b> &nbsp;<b>${esc(state.bible)}</b></div>`;
   }
@@ -1655,9 +1666,16 @@ $('order').addEventListener('click',e=>{ const d=e.target.closest('[data-del]');
 $('addRow').onclick=()=>{ state.order.push(['','','']); save(); renderOrderEditor(); renderPages(); $('o'+(state.order.length-1)+'a').focus(); };
 
 $('bibleBook').innerHTML=BOOKS.map(([b])=>`<option>${b}</option>`).join('');
-function reanchor(){ const book=$('bibleBook').value; const ch=Math.min(Math.max(parseInt($('bibleCh').value,10)||1,1),chOf(book)); state.bibleBase={date:state.date,book,ch}; save(); renderAll(); }
-$('bibleBook').onchange=()=>{ $('bibleCh').value=1; reanchor(); };
-$('bibleCh').onchange=reanchor;
+/* 책·장을 바꿔도 바로 기준을 바꾸지 않고, "이 진도로 바꾸기"를 눌러야 바뀜(실수로 진도가 밀리지 않게) */
+function pickBible(){
+  const book=$('bibleBook').value; const ch=Math.min(Math.max(parseInt($('bibleCh').value,10)||1,1),chOf(book));
+  const [b0,c0]=fromIdx(autoStart());
+  biblePend=(book===b0&&ch===c0)?null:{book,ch}; syncBible();
+}
+$('bibleBook').onchange=()=>{ $('bibleCh').value=1; pickBible(); };
+$('bibleCh').onchange=pickBible;
+$('biblePendOk').onclick=()=>{ if(!biblePend) return; state.bibleBase={date:state.date,book:biblePend.book,ch:biblePend.ch}; biblePend=null; save(); renderAll(); status('성경 읽기 진도를 바꿨어요.'); };
+$('biblePendCancel').onclick=()=>{ biblePend=null; renderAll(); };
 $('bibleAuto').onchange=()=>{ state.bibleAuto=$('bibleAuto').checked; save(); renderAll(); };
 
 /* 장절 → 대한성서공회 개역개정 바로가기 */

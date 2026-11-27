@@ -1278,9 +1278,20 @@ $('tbFitBtn').onclick=()=>tbZoom(tbFit()); $('tbClose').onclick=()=>closeThumb()
   },true);
 }
 
+/* 매주 길이가 바뀌는 칸(암송 말씀·성경 읽기)은 글이 넘치면 아래 빈자리만큼 늘려 보여 줌. 레이아웃(w.h)은 그대로 두고 화면에서만 늘림 */
+function growWeekly(el,tx){
+  const pe=el.closest('.page'), pg=pe&&state.layout.pages[+pe.dataset.page], w=pg&&pg.ws.find(o=>o.id===el.dataset.id);
+  if(!w||!/\{(암송말씀|암송본문|성경읽기)\}/.test(w.p.text||'')) return;
+  el.style.height=w.h+'px';
+  if(tx.scrollHeight<=el.clientHeight+3) return;
+  const below=pg.ws.filter(o=>o!==w&&o.y>w.y+4&&o.x<w.x+w.w-20&&w.x<o.x+o.w-20);
+  const limit=Math.min(PAGE_H-8,...below.map(o=>o.y-6));
+  el.style.height=Math.max(w.h,Math.min(tx.scrollHeight+2,limit-w.y))+'px';
+}
 function checkOverflow(){
   document.querySelectorAll('.page .w-text').forEach(el=>{
     const tx=el.firstElementChild; if(!tx) return;
+    growWeekly(el,tx);
     el.classList.toggle('over',tx.scrollHeight>el.clientHeight+3||tx.scrollWidth>el.clientWidth+3);
   });
   orderFit=checkOrderFit();

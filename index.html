@@ -190,6 +190,7 @@ body.viewer .page .w{cursor:default}
 /* ───────── 주보 페이지 (A4 가로 1123×794px = 297×210mm) ───────── */
 .page{--inv:1;width:1123px;height:794px;background:#fff;color:var(--ink);font-family:var(--f-body),var(--body);font-weight:var(--w-body,400);overflow:hidden;position:relative;color-scheme:light;user-select:none;-webkit-user-select:none}
 .w{position:absolute}
+.wflow{position:absolute;pointer-events:none} /* 소식 3번부터 오른쪽 빈자리에 이어 씀(위젯 아님, 선택·끌기 안 됨) */
 /* 디자인 편집 중에만 위젯이 터치를 가져감. 평소에도 막으면 주보 위에서 스크롤·핀치 확대가 안 됨 */
 body.design .w{touch-action:none}
 .page:not(.exporting) .w{cursor:move}
@@ -961,11 +962,11 @@ function parseList(t){
 }
 const COLORS={dark:'var(--ink)',gray:'var(--ink2)',pink:'var(--pink)',white:'#ffffff',gradient:'var(--navy)'};
 const FONTS={body:'var(--f-body),var(--body)',disp:'var(--f-title),var(--disp)',badge:'var(--f-badge),var(--disp)',retro:'var(--f-retro),var(--body)',num:'var(--num)'};
-function textInner(p){
+function textInner(p,from=0,to){
   const t=fill(p.text), grad=p.color==='gradient';
   let body;
   if(p.fmt==='list'){
-    body='<ol class="nl">'+parseList(t).map((it,i)=>`<li>${it.title?`<b>${i+1}. ${inl(it.title)}</b>`:''}${it.subs.length?'<ul>'+it.subs.map(s=>`<li>${inl(s)}</li>`).join('')+'</ul>':''}</li>`).join('')+'</ol>';
+    body='<ol class="nl">'+parseList(t).slice(from,to).map((it,i)=>`<li>${it.title?`<b>${from+i+1}. ${inl(it.title)}</b>`:''}${it.subs.length?'<ul>'+it.subs.map(s=>`<li>${inl(s)}</li>`).join('')+'</ul>':''}</li>`).join('')+'</ol>';
   }else if(p.fmt==='star'){
     body=lines(t).map(l=>`<div>* ${inl(l)}</div>`).join('');
   }else if(p.fmt==='num'){
@@ -1026,7 +1027,22 @@ function inner(w){
   }
   return '';
 }
-const widgetEl=w=>`<div class="w w-${w.type}" data-id="${w.id}" style="left:${w.x}px;top:${w.y}px;width:${w.w}px;height:${w.h}px">${inner(w)}</div>`;
+/* 중등부 소식({대표기도}가 든 목록 글상자): 3번 항목부터는 오른쪽 단 맨 위 위젯(지교회 안내 제목) 위의 빈자리에 이어 씀 */
+const FLOW_KEEP=2;
+function flowSpot(w,ws){
+  if(w.type!=='text'||w.p.fmt!=='list'||!/\{대표기도\}/.test(w.p.text||'')) return null;
+  if(parseList(fill(w.p.text)).length<=FLOW_KEEP) return null;
+  const right=ws.filter(o=>o!==w&&o.x>=w.x+w.w-20&&o.x<=w.x+w.w+150&&o.y>w.y).sort((a,b)=>a.y-b.y)[0];
+  if(!right) return null;
+  const col=ws.filter(o=>Math.abs(o.x-right.x)<10&&o.type==='text');
+  const h=right.y-6-w.y; if(h<30) return null;
+  return {x:right.x,y:w.y,w:Math.max(...col.map(o=>o.w)),h};
+}
+function widgetEl(w,ws){
+  const f=ws&&flowSpot(w,ws);
+  const main=`<div class="w w-${w.type}" data-id="${w.id}" style="left:${w.x}px;top:${w.y}px;width:${w.w}px;height:${w.h}px">${f?textInner(w.p,0,FLOW_KEEP):inner(w)}</div>`;
+  return f?main+`<div class="wflow w-text" data-flow="${w.id}" style="left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px">${textInner(w.p,FLOW_KEEP)}</div>`:main;
+}
 
 /* ───────── 캔버스 ───────── */
 let sel=null, curPage=0, editing=false, zoom='fit', scale=1;
@@ -1042,7 +1058,7 @@ const selWs=()=>sel?state.layout.pages[sel.pi].ws.filter(w=>w.id===sel.id||selId
 function renderPages(){
   if(editing) endEdit();
   TK=tokens();
-  $('pages').innerHTML=state.layout.pages.map((pg,i)=>`<section><div class="plabel">${esc(pg.name)} <span>${esc(pg.sub||'')}</span></div><div class="scaler"><div class="page" data-page="${i}">${pg.ws.map(widgetEl).join('')}</div></div></section>`).join('')+thumbsHTML();
+  $('pages').innerHTML=state.layout.pages.map((pg,i)=>`<section><div class="plabel">${esc(pg.name)} <span>${esc(pg.sub||'')}</span></div><div class="scaler"><div class="page" data-page="${i}">${pg.ws.map(w=>widgetEl(w,pg.ws)).join('')}</div></div></section>`).join('')+thumbsHTML();
   fit(); drawSel(); checkOverflow(); fitThumbText(); syncThumbEdits(); if($('panelShare')&&!$('panelShare').hidden) renderShare();
   renderOrderNote(); /* 순서표 넘침은 그린 뒤에야 알 수 있음 */
   updViewerDraft();
@@ -1167,7 +1183,12 @@ document.fonts&&document.fonts.addEventListener&&document.fonts.addEventListener
 function renderAll(){ if(!$('panelShare').hidden) setTimeout(renderShare,0); syncBible(); syncTeam(); renderPages(); }
 function rerenderWidget(s=sel){
   const w=getW(s), el=elOf(s); if(!w||!el) return;
-  TK=tokens(); el.outerHTML=widgetEl(w); drawSel(); checkOverflow();
+  TK=tokens(); const page=el.closest('.page'), ws=state.layout.pages[s.pi].ws;
+  el.outerHTML=widgetEl(w);
+  /* 소식 이어 쓰기: 이 면의 글상자가 바뀌면 다시 계산(옮기거나 글을 고친 경우) */
+  page.querySelectorAll('.wflow').forEach(x=>x.remove());
+  for(const o of ws) if(flowSpot(o,ws)){ const n=page.querySelector(`.w[data-id="${o.id}"]`); if(n) n.outerHTML=widgetEl(o,ws); }
+  drawSel(); checkOverflow();
 }
 function fit(){
   const pcs=getComputedStyle($('pages')), avail=$('pages').clientWidth-parseFloat(pcs.paddingLeft)-parseFloat(pcs.paddingRight);
